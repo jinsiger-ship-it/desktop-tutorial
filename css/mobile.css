@@ -1,0 +1,358 @@
+/* 모든 화면에서 사용하는 모바일 스타일 */
+html{scroll-padding-bottom:110px}
+
+ body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+
+ header{padding:18px max(18px,env(safe-area-inset-left,0px)) 16px}
+
+ header .brand{display:inline-block;font-size:25px}
+
+ nav{position:fixed;bottom:0;left:0;right:0;z-index:50;margin:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;overflow:visible;background:#fff;border-top:1px solid var(--line);padding:6px env(safe-area-inset-right,0px) calc(6px + env(safe-area-inset-bottom,0px)) env(safe-area-inset-left,0px);box-shadow:0 -4px 20px #172d3709}
+
+ nav a{min-width:0;min-height:56px;padding:6px 0;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;letter-spacing:-.4px;color:#70786b;white-space:nowrap;border-radius:8px}
+
+ nav a.active{background:#eaf0de;border:0;color:var(--accent)}
+
+ .nav-icon{display:block;font-size:22px;line-height:1.1;font-weight:500}
+
+ main{padding:26px max(18px,env(safe-area-inset-left,0px)) 38px;min-height:70svh}
+
+ main>*{min-width:0}
+h1{font-size:30px;overflow-wrap:anywhere}
+.intro{font-size:14px}
+
+ .btn{min-height:46px;padding:12px 16px;font-size:14px}
+.text-link{display:inline-flex;align-items:center;min-height:44px}
+.actions{gap:10px}
+
+ input:not([type=radio]):not([type=checkbox]),textarea,select{font-size:16px;min-height:48px}
+input[type=file]{font-size:12px!important;max-width:100%}
+input[type=radio],input[type=checkbox]{width:20px;height:20px;vertical-align:middle;flex-shrink:0}
+label{font-size:13px}
+textarea{min-height:105px}
+
+ .fields{gap:0 12px}
+.panel{padding:20px}
+.steps{position:sticky;top:0;z-index:10;background:var(--paper);gap:0;justify-content:space-between;margin:20px 0}
+.steps span{font-size:11px;padding:12px 0}
+.editor-grid{gap:22px}
+.preview{order:0;padding:18px}
+.preview>.eyebrow:after{content:' · 입력한 내용이 여기에 반영됩니다';font-size:9px;letter-spacing:0;font-weight:400}
+.editor-grid form .actions{display:grid;grid-template-columns:1fr 1fr}
+.editor-grid form>.btn{width:100%;margin-top:10px}
+.reward-option{min-height:58px;padding:12px}
+.reward-option small{line-height:1.6}
+
+.section-title{flex-wrap:wrap}
+.collection-grid{gap:28px}
+.card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.card-actions .btn{min-height:44px;font-size:13px;padding:10px 8px}
+.toolbar{gap:14px}
+.tabs{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}
+.tabs .btn{font-size:13px;min-height:44px}
+.toolbar>a{width:100%}
+
+ .game-grid{gap:18px}
+.game-grid aside h2{margin:8px 0}
+.game-grid .stat{margin:12px 0}
+.scene{padding:22px 18px}
+.choices button{min-height:74px;padding:16px 12px;gap:12px;font-size:14px}
+.choices button small{font-size:11px;line-height:1.6}
+.reward-banner{overflow-wrap:anywhere}
+.history summary{min-height:44px;line-height:44px}
+.history p{overflow-wrap:anywhere}
+.inventory-grid{gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%, 145px),1fr))}
+.inventory-grid .panel{padding:14px}
+.inventory-grid h3{font-size:14px;overflow-wrap:anywhere}
+.inventory-grid p{font-size:11px}
+.profile-grid .section-title>.badge{display:inline-block;font-size:10px}
+.post .section-title .btn{min-height:44px;font-size:12px}
+.post>p{overflow-wrap:anywhere}
+.comment-form{align-items:stretch}
+.comment-form input{min-width:0}
+.comment-form .btn{min-width:58px;font-size:13px}
+.comments p{font-size:13px}
+
+ .match{gap:6px;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+.match strong{font-size:34px}
+.match b{font-size:13px}
+.ticket-top{font-size:9px;padding:12px 14px}
+.ticket-content{padding:16px 14px 10px}
+.ticket-content p{font-size:12px}
+.ticket-stub{padding:12px 14px;grid-template-columns:minmax(0,1fr) 75px}
+.ticket-stub>span{font-size:9px}
+.ticket-photo{height:165px}
+.ticket.photo .ticket-photo{height:210px}
+
+ footer{padding:22px 18px;line-height:1.7}
+#toast{bottom:calc(87px + env(safe-area-inset-bottom,0px));width:max-content;max-width:min(calc(100% - 28px), 452px);padding:13px 17px;font-size:13px;overflow-wrap:anywhere}
+
+
+/* 모바일 UI를 기본으로 사용하고 넓은 화면에서는 휴대전화 폭으로 가운데 정렬합니다. */
+:root {
+  --app-width: 490px;
+  --paper: #f7f7f5;
+  --ink: #17232a;
+  --muted: #687680;
+  --line: #e0e6e7;
+  --surface: #fff;
+  --accent: #172d37;
+  --soft: #eef2f1;
+  background: #e8eceb;
+}
+
+body {
+  width: 100%;
+  max-width: var(--app-width);
+  min-height: 100svh;
+  margin-inline: auto;
+}
+
+nav {
+  width: 100%;
+  max-width: var(--app-width);
+  margin-inline: auto;
+}
+
+main, header {
+  padding-left: max(clamp(14px, 4.5vw, 18px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(14px, 4.5vw, 18px), env(safe-area-inset-right, 0px));
+}
+
+.steps span { font-size: clamp(10px, 2.8vw, 11px); }
+.match strong { font-size: clamp(29px, 9vw, 34px); }
+.ticket-stub { grid-template-columns: minmax(0, 1fr) clamp(60px, 19vw, 75px); }
+nav a { font-size: clamp(9px, 2.7vw, 10px); }
+.account-panel { margin-bottom: 22px; }
+.account-panel details { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 10px; }
+.account-panel summary { cursor: pointer; min-height: 44px; display: list-item; padding-block: 10px; font-weight: 700; }
+.account-panel details p { overflow-wrap: anywhere; }
+.account-panel form { margin-block: 12px; }
+
+/* 참고 UI의 고정 헤더, 가운데 홈 탭, 카드와 진행 표시를 공통으로 적용합니다. */
+body { background: var(--paper); color: var(--ink); box-shadow: 0 12px 56px #07222a19; }
+header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 66px;
+  gap: 10px;
+  padding-block: calc(10px + env(safe-area-inset-top, 0px)) 10px;
+  background: #fafbfaf2;
+  backdrop-filter: blur(15px);
+}
+header .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 19px;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: -.8px;
+}
+header .brand .brand-mark {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  width: 33px;
+  height: 33px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: white;
+  font-size: 19px;
+  letter-spacing: 0;
+}
+.edition {
+  display: inline-flex;
+  max-width: none;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #eef1f1;
+  color: #526670;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.bottomnav {
+  padding-block: 4px calc(5px + env(safe-area-inset-bottom, 0px));
+  background: #fffffff5;
+  backdrop-filter: blur(13px);
+}
+.bottomnav a {
+  min-height: 67px;
+  gap: 4px;
+  color: #697983;
+  font-weight: 700;
+  font-size: 11px;
+}
+.bottomnav a.active { background: transparent; color: var(--accent); }
+.nav-icon { display: grid; place-items: center; }
+.nav-icon svg { width: 21px; height: 21px; }
+.home-nav .nav-icon {
+  width: 43px;
+  height: 38px;
+  border-radius: 14px;
+  background: #eaf0f1;
+  color: var(--accent);
+}
+.home-nav.active .nav-icon { color: white; background: var(--accent); }
+.home-nav svg { width: 23px; height: 23px; }
+main { padding-block: 22px 38px; }
+#app h1 {
+  margin: 0 0 8px;
+  font-size: 27px;
+  line-height: 1.28;
+  letter-spacing: -1.1px;
+  font-weight: 900;
+  word-break: keep-all;
+}
+.eyebrow { margin-bottom: 9px; color: #617781; }
+.intro { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.panel, .collection-grid > section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px;
+}
+.panel h2 { letter-spacing: -.5px; }
+.btn {
+  min-height: 47px;
+  border-radius: 13px;
+  font-weight: 800;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.btn.secondary { background: white; color: var(--ink); border-color: #d3dadd; }
+.btn.quiet { background: transparent; color: #963e34; border-color: transparent; }
+input:not([type=radio]):not([type=checkbox]), textarea, select { border-radius: 12px; border-color: #d6dddd; }
+.empty, .preview, .notice, .reward-banner { border-radius: 19px; background: var(--soft); }
+.empty { border-color: #d4dddf; }
+.badge { background: #e7eeef; color: #34515e; }
+.ticket { border-radius: 15px; }
+.ticket-top { background-color: var(--accent); }
+.steps {
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  border-bottom: 0;
+}
+.steps span, .steps span.active {
+  padding: 8px 0 0;
+  border-top: 5px solid #dbe4e6;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+.steps span.active { border-top-color: var(--accent); }
+.editor-grid[data-stage="2"] .preview, .editor-grid[data-stage="3"] .preview { order: -1; }
+.toolbar { margin-block: 18px; }
+.collection-grid { gap: 16px; }
+.community-cta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.community-cta p { margin: 3px 0 0; color: var(--muted); }
+.community-cta .btn { padding-inline: 12px; font-size: 12px; }
+.account-panel form > .btn, .game-start form > .btn { width: 100%; }
+
+.hero, .game-cover, .profile-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background: linear-gradient(140deg, var(--accent), #1a3943 68%, #29424a);
+  color: #fff;
+  padding: 25px 22px 22px;
+}
+.hero { display: block; }
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 205px;
+  height: 205px;
+  border: 1px solid #ffffff2e;
+  border-radius: 50%;
+  right: -84px;
+  top: -94px;
+  box-shadow: 0 0 0 29px #ffffff0d, 0 0 0 65px #ffffff08;
+  pointer-events: none;
+}
+.hero .eyebrow, .game-cover .eyebrow { color: #b7d2d5; }
+#app .hero h1 { font-size: 29px; color: #fff; }
+.hero p, .game-cover p { color: #d7e2e4; font-size: 13px; line-height: 1.7; }
+.hero > .btn { position: relative; width: 100%; margin-top: 19px; background: #fff; color: #15323b; border-color: #fff; }
+.hero-ticket {
+  position: relative;
+  width: min(100%, 245px);
+  margin: 24px 3px 8px auto;
+  transform: rotate(-5deg);
+  padding: 13px 14px;
+  background: #e8e2d6;
+  color: #213039;
+  border-radius: 15px;
+  box-shadow: 7px 14px 16px #0005;
+}
+.hero-ticket-meta { display: flex; justify-content: space-between; gap: 6px; font-size: 9px; font-weight: 800; letter-spacing: .35px; }
+.hero-ticket-match { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; text-align: center; font-size: 15px; font-weight: 900; margin: 15px 0; overflow-wrap: anywhere; }
+.hero-ticket-match strong { font-size: 12px; color: #49636e; white-space: nowrap; }
+.hero-ticket-stub { padding-top: 7px; border-top: 1px solid #b5b7b2; color: #4f6068; }
+.home-section { margin-top: 22px; }
+.home-section h2 { margin-bottom: 12px; font-size: 17px; letter-spacing: -.45px; }
+.home-flow, .profile-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.home-flow a, .profile-metrics > div {
+  display: grid;
+  gap: 5px;
+  padding: 12px 8px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-weight: 800;
+}
+.home-flow b, .profile-metrics strong { font-size: 20px; color: var(--accent); }
+.home-flow span { font-size: 11px; }
+.home-flow small, .profile-metrics small { color: var(--muted); font-size: 10px; font-weight: 500; }
+.game-teaser { display: flex; align-items: center; gap: 12px; background: #f2e9e3; border-radius: 19px; padding: 16px; }
+.teaser-ball, .profile-avatar { display: grid; place-items: center; flex: none; width: 55px; height: 55px; background: white; border-radius: 17px; font-size: 28px; }
+.game-teaser small, .game-teaser b { display: block; font-size: 12px; }
+.game-teaser small { margin-block: 2px; color: #6d625e; }
+.game-teaser b { color: #964738; }
+.game-start { margin-block: 16px; gap: 14px; }
+.game-cover h2 { margin: 0; line-height: 1.35; }
+.game-grid aside { background: #eef3f4; }
+.choices button { background: white; border-radius: 13px; }
+
+.career-prospects { display: grid; gap: 10px; padding: 0; border: 0; }
+.career-prospects legend { margin-bottom: 8px; font-weight: 700; }
+.career-prospects label { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.career-prospects label:has(input:checked) { border-color: var(--accent); background: #eef3f4; }
+.career-prospects label small { display: block; margin-top: 4px; }
+.career-archive { margin-top: 14px; }
+.career-archive summary { cursor: pointer; padding-block: 8px; }
+.career-archive article { padding-block: 12px; border-top: 1px solid var(--line); }
+.auto-career .career-news { padding: 12px; background: #eef3f4; border-radius: 10px; }
+.auto-career .result { margin-top: 16px; }
+
+.career-broadcast { margin: 14px 0; padding: 14px; border-radius: 15px; color: #f5fafb; background: #172d37; }
+.broadcast-visual { aspect-ratio: 16 / 9; margin-bottom: 12px; overflow: hidden; border-radius: 9px; background: #263f45; }
+.broadcast-visual img, .broadcast-visual video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.broadcast-visual [hidden] { display: none; }
+.broadcast-header, .broadcast-count { display: flex; align-items: center; gap: 10px; }
+.broadcast-header { justify-content: space-between; color: #c2d9dc; font-size: 12px; }
+.broadcast-header i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 50%; background: #bce579; }
+.broadcast-count { flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
+.broadcast-count span { padding: 3px 8px; border: 1px solid #4c676f; border-radius: 7px; }
+.broadcast-count span b { font-size: 16px; }
+.broadcast-call { margin-left: auto; color: #d4ecf0; }
+.broadcast-call.good { color: #c8ef89; }
+.broadcast-call.bad { color: #ffc6ad; }
+.broadcast-line { min-height: 2.8em; margin: 12px 0 6px; color: inherit; line-height: 1.4; }
+.broadcast-trail { display: flex; flex-wrap: wrap; gap: 5px; min-height: 22px; }
+.broadcast-trail span { padding: 2px 6px; border-radius: 5px; background: #304c56; font-size: 10px; }
+@media (prefers-reduced-motion: no-preference) {
+  .broadcast-line { animation: appear .2s ease-out; }
+}
+.profile-card { display: grid; justify-items: center; gap: 7px; text-align: center; }
+.profile-card > strong { font-size: 21px; overflow-wrap: anywhere; }
+.profile-card > small { color: #d7e2e4; }
+.profile-metrics { margin: 12px 0 18px; text-align: center; }
