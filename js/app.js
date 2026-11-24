@@ -170,7 +170,7 @@ function profile(){
     `<small>${E(team[1])}${FP.cloudMode?' · '+E(FP.account.username):''}</small>`}
  </section>
  <a class="panel my-collection-link" href="#collection"><div><strong>내 수집함</strong><span>${FP.account.username?'계정에 저장된 티켓':'이 브라우저에 저장된 티켓'}</span></div><span>티켓 ${d.tickets.length}장 →</span></a>
- ${FP.cloudMode?(guest?'':'<a class="text-link account-tools-link" href="#account">계정 및 기록 관리 →</a>'):FP.accountPanel()}
+ ${FP.cloudMode?'':FP.accountPanel()}
  <div class="profile-grid"><section><div class="section-title"><h2>대표 티켓</h2>${d.profile.selectedTitleId?`<span class="badge">✦ ${FP.titles.find(t=>t.id===d.profile.selectedTitleId).name}</span>`:''}</div>${t?FP.ticket(t):empty('대표 티켓을 지정해 주세요.','collection','수집함 열기')}${t?button('대표 지정 해제','unfeature','','secondary'):''}</section></div>`;
 }
 function openLogin(destination, ticket=null){
@@ -523,6 +523,12 @@ function render() {
   const activeTab = view === 'create' ? 'home' : ['collection','profile-edit','account'].includes(view) ? 'profile' : view;
   const loginPage=FP.cloudMode&&['login','login-team'].includes(view)&&!FP.account.username;
   document.querySelector('.bottomnav')?.toggleAttribute?.('hidden',loginPage);
+  const accountLink=document.querySelector('.header-account');
+  if(accountLink?.toggleAttribute){
+    accountLink.hidden=!FP.cloudMode||!FP.account.username;
+    if(!accountLink.hidden&&view==='account')accountLink.setAttribute('aria-current','page');
+    else accountLink.removeAttribute('aria-current');
+  }
   const sections = view==='game' ? ['.history','.career-archive','.ability-details'] : ['.cloud-tools'];
   const openSections = sections.filter(selector=>app.querySelector?.(selector)?.open);
   const previousClip = app.querySelector?.('.broadcast-clip');

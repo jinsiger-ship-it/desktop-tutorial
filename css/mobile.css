@@ -177,6 +177,35 @@ header .brand .brand-mark {
   font-weight: 800;
   white-space: nowrap;
 }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid #bfd1c4;
+  border-radius: 9px;
+  background: #edf3ee;
+  color: #183d32;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.header-account[hidden] { display: none; }
+.header-account:hover { background: #dfece2; }
+.header-account[aria-current="page"] { background: #183d32; border-color: #183d32; color: #fff; }
+@media (max-width: 360px) {
+  header:has(.header-account:not([hidden])) {
+    gap: 6px;
+    padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
+  }
+  header:has(.header-account:not([hidden])) .brand { gap: 5px; font-size: 17px; }
+  header:has(.header-account:not([hidden])) .brand-mark { width: 29px; height: 29px; font-size: 16px; }
+  .header-actions:has(.header-account:not([hidden])) { gap: 5px; }
+  .header-actions:has(.header-account:not([hidden])) .edition { padding-inline: 6px; font-size: 8px; }
+  .header-account { padding-inline: 8px; font-size: 12px; }
+}
 .bottomnav {
   padding-block: 4px calc(5px + env(safe-area-inset-bottom, 0px));
   background: #fffffff5;
@@ -557,7 +586,6 @@ html {
 }
 .guest-profile-card .profile-edit { color: var(--accent); background: #edf2e7; }
 .profile-login { width: 100%; margin-top: 8px; }
-.account-tools-link { color: var(--accent); text-decoration: underline; }
 .bottomnav[hidden] { display: none; }
 .login-screen { max-width: 450px; margin: 0 auto; }
 .login-screen > .text-link { color: var(--accent); }
