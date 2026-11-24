@@ -51,7 +51,7 @@ FP.normalize = raw => {
   if(recovered)d.savedCareers.push({id:FP.str(saved.id),career:recovered});
  }
  for(const c of [d.career,...d.careerHistory,...d.savedCareers.map(x=>x.career)]) if([6,7].includes(c?.rules)) FP.grantStoryRewards(d,c);
- d.posts=(Array.isArray(r.posts)?r.posts:[]).filter(p=>p&&FP.str(p.id)&&FP.ticketData(p.ticket)).map(p=>({id:FP.str(p.id),nickname:FP.str(p.nickname ?? p.author,24)||'야구팬',text:FP.str(p.text ?? p.message,300),ticket:FP.ticketData(p.ticket),liked:p.liked===true,comments:(Array.isArray(p.comments)?p.comments:[]).filter(c=>c&&typeof c.text==='string').slice(-100).map(c=>({nickname:FP.str(c.nickname ?? c.author,24)||'야구팬',text:FP.str(c.text,200)}))}));
+ d.posts=(Array.isArray(r.posts)?r.posts:[]).filter(p=>p&&FP.str(p.id)&&FP.ticketData(p.ticket)).map(p=>({id:FP.str(p.id),nickname:FP.str(p.nickname ?? p.author,24)||'야구팬',text:FP.str(p.text ?? p.message,300),ticket:FP.ticketData(p.ticket),...(typeof p.createdAt==='string'&&Number.isFinite(Date.parse(p.createdAt))?{createdAt:p.createdAt}:{}),liked:p.liked===true,comments:(Array.isArray(p.comments)?p.comments:[]).filter(c=>c&&typeof c.text==='string').slice(-100).map(c=>({nickname:FP.str(c.nickname ?? c.author,24)||'야구팬',text:FP.str(c.text,200)}))}));
  return d;
 };
 FP.load = storage => {

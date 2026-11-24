@@ -6,6 +6,9 @@
  FP.cloudMode=true;
  FP.cloudError='';
  const activeKey='fanplay-demo-active-id-v1';
+ const previousKey='fanplay-demo-last-id-v1';
+ FP.activeDemoId=()=>{try{return localStorage.getItem(activeKey)||'';}catch{return '';}};
+ FP.lastDemoId=()=>{try{return FP.activeDemoId()||localStorage.getItem(previousKey)||'';}catch{return '';}};
  const validId=id=>typeof id==='string'&&/^[a-z0-9_]{3,24}$/.test(id);
  FP.cloudRpc = async (name,body={}) => {
   let response;
@@ -35,7 +38,7 @@
    const id=String(body.username||'').trim().toLowerCase();
    if(!validId(id))throw Object.assign(new Error('아이디는 영문 소문자·숫자·밑줄 3~24자로 입력해 주세요.'),{status:400});
    const result=validateResult(await FP.cloudRpc('fanplay_demo_open',{p_player_id:id}));
-   try{localStorage.setItem(activeKey,id);}catch{}
+   try{localStorage.setItem(activeKey,id);localStorage.setItem(previousKey,id);}catch{}
    return result;
   }
   if(route==='state'){

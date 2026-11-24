@@ -26,7 +26,12 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   if(!/^\/(index\.html|js\/[a-z-]+\.js|css\/[a-z-]+\.css|assets\/broadcast\/[a-z-]+\.(mp4|webp))$/.test(pathname)&&pathname!=='/'){res.writeHead(404).end();return;}
   const file=path.join(root,pathname==='/'?'index.html':pathname.slice(1));
   const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.webp':'image/webp','.mp4':'video/mp4'};
-  res.setHeader('Content-Type',mime[path.extname(file)]);fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res);
+  res.setHeader('Content-Type',mime[path.extname(file)]);
+  // Keep this compatibility check pointed at the previous shared-ID screen.
+  if(path.extname(file)==='.html')return res.end(fs.readFileSync(file,'utf8')
+    .replace(/<script src="js\/members\.js[^"]*"><\/script>/,'')
+    .replace(/<script src="js\/community\.js[^"]*"><\/script>/,''));
+  fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res);
  }).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE});
  let offline=false,missing=false;const errors=[];

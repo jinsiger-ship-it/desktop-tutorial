@@ -530,3 +530,30 @@ html {
 @media (max-width: 360px) {
   .decoration-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.bottomnav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.profile-card { position: relative; }
+.profile-edit {
+  position: absolute;
+  inset-block-start: 12px;
+  inset-inline-end: 12px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: #fff;
+  background: #ffffff24;
+}
+.my-collection-link { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin: 12px 0; }
+.my-collection-link span { color: #455d54; }
+.community-toolbar { margin-block: 12px; }
+.community-sorts { display: flex; flex-wrap: wrap; gap: 8px; }
+.community-sorts .btn { padding-inline: 12px; }
+.community-sorts [aria-pressed="true"] { background: var(--accent); color: #fff; }
+.community-links, .community-owner-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.community-links { justify-content: space-between; margin-top: 10px; }
+.community-comments summary { padding-block: 10px; cursor: pointer; min-height: 44px; width: fit-content; }
+.community-comment { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+.community-comment > p { min-width: 0; overflow-wrap: anywhere; }
+.community-pages { justify-content: center; }
