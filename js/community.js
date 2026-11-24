@@ -6,7 +6,7 @@
   let realtimeClient;
   let interval, refreshTimer, disconnect, active=false, epoch=0;
   let requested=0;
-  let cursors=[null], viewer;
+  let cursors=[null], viewer, feedViewer;
   const threads=new Map(), photos=new Map(), commentDrafts=new Map(), openThreads=new Set(), writes=new Map();
   const missing=error=>['PGRST202','42883'].includes(error.code);
   function requestId(){
@@ -80,6 +80,7 @@
     const paging=FP.communitySort==='latest'&&(FP.communityPage>0||FP.communityHasMore)
       ?`<div class="actions community-pages"><button type="button" class="btn secondary" data-action="community-page" data-value="-1" ${FP.communityPage===0?'disabled':''}>이전</button><span>${FP.communityPage+1} 페이지</span><button type="button" class="btn secondary" data-action="community-page" data-value="1" ${FP.communityHasMore?'':'disabled'}>다음</button></div>`:'';
     if(!FP.communityPosts.length)return '<p class="panel">아직 이 목록에 티켓이 없어요.</p>'+paging;
+    const sameViewer=Boolean(FP.account.username)&&feedViewer===FP.account.username;
     return `<div class="collection-grid">${FP.communityPosts.map((post,index)=>{
       const ticket=FP.ticketData({...post.ticket,photo:photos.get(post.id)||post.thumbnail||post.ticket?.photo});
       if(!ticket)return '';
@@ -88,29 +89,29 @@
         ?`<time datetime="${E(post.createdAt)}">${E(published.toLocaleString('ko-KR',{dateStyle:'short',timeStyle:'short'}))}</time>`:'<span>이전 기록 · 작성 시각 없음</span>';
       return `<article class="post panel">
         <div class="section-title"><div>${FP.communitySort==='latest'?'':`<span class="badge">${index+1}위</span> `}<b>${E(post.nickname)}</b><div class="muted">${date}</div></div>
-        ${post.mine?`<div class="community-owner-actions"><button type="button" class="btn secondary" data-action="edit-post" data-value="${E(post.id)}">수정</button><button type="button" class="btn quiet" data-action="delete-post" data-value="${E(post.id)}">삭제</button></div>`:''}</div>
+        ${sameViewer&&post.mine?`<div class="community-owner-actions"><button type="button" class="btn secondary" data-action="edit-post" data-value="${E(post.id)}">수정</button><button type="button" class="btn quiet" data-action="delete-post" data-value="${E(post.id)}">삭제</button></div>`:''}</div>
         <p>${E(post.text)}</p>${FP.ticket(ticket)}
         ${FP.communityV2&&post.hasPhoto&&!photos.has(post.id)?`<button class="btn secondary" type="button" data-action="community-photo" data-value="${E(post.id)}">원본 사진 보기</button>`:''}
         <div class="actions">
-          ${FP.account.username?`<button type="button" class="btn secondary" data-action="like" data-value="${E(post.id)}" aria-pressed="${post.liked===true}">${post.liked?'♥':'♡'} 좋아요 ${Number(post.likes)||0}</button>`:`<span>좋아요 ${Number(post.likes)||0}</span>`}
+          ${FP.account.username?`<button type="button" class="btn secondary" data-action="like" data-value="${E(post.id)}" aria-pressed="${sameViewer&&post.liked===true}">${sameViewer&&post.liked?'♥':'♡'} 좋아요 ${Number(post.likes)||0}</button>`:`<span>좋아요 ${Number(post.likes)||0}</span>`}
           ${FP.communityV2&&FP.account.username&&!post.mine?`<button type="button" class="btn quiet" data-action="community-report" data-value="${E(post.id)}">신고</button>`:''}
         </div>
         <details class="community-comments" data-thread="${E(post.id)}" ${openThreads.has(post.id)?'open':''}><summary>댓글 ${Number(post.replyCount)||0}</summary>
           <div class="comments">${threadMarkup(post)}</div>
-          ${FP.account.username?`<form class="comment-form" data-post="${E(post.id)}"><input name="comment" required maxlength="200" aria-label="댓글" placeholder="댓글 쓰기" value="${E(commentDrafts.get(post.id)||'')}"><button class="btn" type="submit">등록</button></form>`:''}
+          ${FP.account.username?`<form class="comment-form" data-post="${E(post.id)}"><input name="comment" required maxlength="200" aria-label="댓글" placeholder="댓글 쓰기" value="${E(viewer===FP.account.username?commentDrafts.get(post.id)||'':'')}"><button class="btn" type="submit">등록</button></form>`:''}
         </details>
       </article>`;
     }).join('')}</div>${paging}`;
   }
   function threadMarkup(post){
-    const cached=threads.get(post.id);
+    const cached=viewer===FP.account.username?threads.get(post.id):null;
     const rows=FP.communityV2?[...(cached?.rows||[])].reverse():(post.comments||[]);
     return (cached?.error?`<p role="status">${E(cached.error)}</p>`:'')+
       (FP.communityV2&&post.replyCount&&(!cached?.rows||cached.more||cached.error)?
         `<button type="button" class="btn secondary" data-action="community-comments" data-value="${E(post.id)}">${cached?.error?'다시 불러오기':cached?.rows?'이전 댓글 더 보기':'댓글 불러오기'}</button>`:'')+
       (!FP.communityV2&&post.replyCount>rows.length?'<p class="muted">최근 댓글 15개를 표시해요.</p>':'')+
       rows.map(c=>`<div class="community-comment"><p><b>${E(c.nickname)}</b> ${E(c.text)}</p>
-        ${c.mine?`<button type="button" class="btn quiet" data-action="delete-comment" data-value="${E(c.id)}" data-post="${E(post.id)}" aria-label="내 댓글 삭제">삭제</button>`:''}</div>`).join('');
+        ${c.mine&&feedViewer===FP.account.username&&FP.account.username?`<button type="button" class="btn quiet" data-action="delete-comment" data-value="${E(c.id)}" data-post="${E(post.id)}" aria-label="내 댓글 삭제">삭제</button>`:''}</div>`).join('');
   }
   function drawFeed(){
     const node=document.querySelector('#community-feed');
@@ -165,6 +166,7 @@
     }
     const serial=++requested;
     const sort=FP.communitySort;
+    const owner=FP.account.username;
     try {
       const identity=FP.communityIdentity();
       const posts=await FP.cloudRpc('fanplay_demo_ticket_feed_v2',{p_sort:sort,...cursors[FP.communityPage],...identity})
@@ -174,10 +176,11 @@
           FP.communityV2=false;
           return FP.cloudRpc('fanplay_demo_ticket_feed',{p_sort:sort,p_page:FP.communityPage,...identity});
         });
-      if(serial!==requested || sort!==FP.communitySort)return;
+      if(serial!==requested || sort!==FP.communitySort||owner!==FP.account.username)return;
       FP.communityHasMore=sort==='latest'&&Array.isArray(posts)&&posts.length>20;
       const previous=new Map(FP.communityPosts.map(post=>[post.id,post.replyCount]));
       FP.communityPosts=Array.isArray(posts)?posts.slice(0,20):[];
+      feedViewer=owner;
       FP.communityError='';
       FP.communityLoaded=true;
       if(FP.communityV2)for(const post of FP.communityPosts){

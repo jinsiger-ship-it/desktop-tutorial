@@ -5,7 +5,7 @@ FP.data=FP.load(localStorage);
 let draft=null,draftExpected,draftPhotoMissing=false,filter='전체',formStage=1,photoBusy=false;
 let loginId='', loginReturn='profile', pendingShare=null, shareOptions=null;
 let backupPreview=null;
-let rankings={position:'투수',entries:[],mine:[],error:'',loading:false,request:0};
+let rankings={position:'투수',entries:[],mine:[],owner:null,error:'',loading:false,request:0};
 let careerTimer, careerPaused=false, careerSaving=false;
 let careerBroadcast;
 let decorationTab='frame', showAllDecorations=false;
@@ -407,7 +407,7 @@ function rankingScreen(){
   <div class="actions">${['투수','타자'].map(key=>`<button type="button" class="btn ${key===position?'':'secondary'}" data-action="ranking-position" data-value="${key}" aria-pressed="${key===position}">${key}</button>`).join('')}${button('새로고침','ranking-refresh','','secondary')}</div>
   <section class="panel"><h2>${position} TOP 10</h2><p>${pitcher?'ERA 낮은 순 · 100이닝 이상':'타율 높은 순 · 300타수 이상'}</p>
   ${loading?'<p role="status">순위를 불러오는 중이에요.</p>':error?`<p role="status">${E(error)}</p>`:entries.length?`<ol>${entries.map(entry=>`<li><b>${E(entry.name)}</b> · ${E(entry.nickname)} · ${E(entry.seasons)}시즌 · ${E(entry.sample)}${pitcher?'이닝':'타수'} · ${pitcher?'ERA':'타율'} ${Number(entry.score).toFixed(pitcher?2:3)}</li>`).join('')}</ol>`:'<p>등록된 선수가 없어요.</p>'}</section>
-  ${FP.account.username&&!error&&mine.length?`<section class="panel"><h2>내 순위 등록</h2>${mine.map(row=>`<p>${E(row.position)} · ${E(row.name)} ${button('등록 취소','ranking-cancel',row.position+':'+row.careerId,'secondary')}</p>`).join('')}</section>`:''}`;
+  ${FP.account.username===rankings.owner&&!error&&mine.length?`<section class="panel"><h2>내 순위 등록</h2>${mine.map(row=>`<p>${E(row.position)} · ${E(row.name)} ${button('등록 취소','ranking-cancel',row.position+':'+row.careerId,'secondary')}</p>`).join('')}</section>`:''}`;
 }
 
 async function loadRankings(){
@@ -421,7 +421,7 @@ async function loadRankings(){
    username?FP.cloudRpc('fanplay_demo_career_rank_status',{p_player_id:username}):[]
   ]);
   if(request!==rankings.request||username!==FP.account.username)return;
-  rankings.entries=entries;rankings.mine=mine;
+  rankings.entries=entries;rankings.mine=mine;rankings.owner=username;
  }catch(error){
   if(request!==rankings.request)return;
   rankings.error=['PGRST202','42883'].includes(error.code)?'운영 데이터베이스에 선수 랭킹 설정을 적용한 뒤 이용할 수 있어요.':error.message;
@@ -757,6 +757,7 @@ async function submitAccount(form) {
     FP.useAccount(result);
     backupPreview=null;
     shareOptions=null;
+    rankings.mine=[];
     draft = null;draftExpected=undefined;draftPhotoMissing=false;
     appliedMatch = null;
     formStage = 1;
@@ -909,7 +910,7 @@ if(a==='cloud-download')FP.downloadDemoState?.();
 if(a==='cloud-retry'&&FP.cloudMode){const restoring=FP.restoreAccount();render();await restoring;render();return;}
 if(a==='cloud-guest'&&FP.continueAsGuest?.()){backupPreview=null;render();return;}
 if(a==='records-download'){FP.downloadRecordFile(JSON.stringify({format:'fanplay-backup',version:1,state:FP.data},null,2),'fanplay-records.json');return;}
-if(a==='records-download-conflict'&&FP.pendingDeviceSave){FP.downloadRecordFile(JSON.stringify(FP.pendingDeviceSave,null,2),'fanplay-unsaved-device.json');return;}
+if(a==='records-download-conflict'&&!FP.account.username&&FP.pendingDeviceSave){FP.downloadRecordFile(JSON.stringify(FP.pendingDeviceSave,null,2),'fanplay-unsaved-device.json');return;}
 if(a==='records-load-latest'&&!FP.account.username){FP.data=FP.load(localStorage);FP.deviceConflict=false;careerPaused=true;render();return;}
 if(a==='records-download-pending'&&FP.pendingAccountSave?.username===FP.account.username){
  FP.downloadRecordFile(JSON.stringify(FP.pendingAccountSave.state,null,2),'fanplay-unsaved.json');return;
