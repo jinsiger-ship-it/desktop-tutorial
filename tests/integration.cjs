@@ -6,11 +6,12 @@ const ctx=vm.createContext({console,localStorage:storage});
 for(const f of ['game-data','storage','game','career-story','tickets'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+f+'.js','utf8'),ctx);
 const F=ctx.FP;F.toast=()=>{};const test=(name,fn)=>{fn();checks++;console.log('PASS '+name);};
 test('기본값과 잘못된 커리어 분리 복구',()=>{assert.equal(F.normalize({career:{}}).career,null);assert.equal(F.normalize({career:{stats:[1,'2',3],step:1,log:[]}}).career,null);});
+const reset=()=>{values.clear();F.data=F.defaults();};
 const ticket={...F.copy(F.sample),id:'test'};
-test('티켓 생성, 동일 ID 수정, 복원',()=>{F.data=F.defaults();assert(F.saveTicket(ticket));assert(F.saveTicket({...ticket,note:'수정'}));assert.equal(F.data.tickets.length,1);assert.equal(F.load(storage).tickets[0].note,'수정');});
+test('티켓 생성, 동일 ID 수정, 복원',()=>{reset();assert(F.saveTicket(ticket));assert(F.saveTicket({...ticket,note:'수정'}));assert.equal(F.data.tickets.length,1);assert.equal(F.load(storage).tickets[0].note,'수정');});
 test('대표 티켓 삭제 연동과 게시 사본 유지',()=>{F.transact(d=>{d.profile.featuredTicketId='test';d.posts.push({id:'p',ticket:F.copy(d.tickets[0]),comments:[]});});assert(F.deleteTicket('test'));assert.equal(F.data.profile.featuredTicketId,null);assert.equal(F.data.posts[0].ticket.id,'test');});
 test('미획득 보상 적용 차단',()=>{assert.equal(F.saveTicket({...ticket,frameId:'star'}),false);});
-test('세 결말, 중복 방지, 새 선수 후 보상 유지',()=>{F.data=F.defaults();for(let option=0;option<3;option++){assert(F.startCareer('테스트','투수'));for(let i=0;i<8;i++)assert(F.choose(option));assert.equal(F.ending(F.data.career.stats),['steady','star','legend'][option]);assert(F.data.inventory.itemIds.includes(['steady','star','legend'][option]));}assert.equal(F.data.inventory.itemIds.length,4);assert.equal(F.data.inventory.titleIds.length,3);F.grant(F.data);assert.equal(F.data.inventory.itemIds.length,4);F.startCareer('새 선수','내야수');assert.equal(F.data.inventory.itemIds.length,4);});
+test('세 결말, 중복 방지, 새 선수 후 보상 유지',()=>{reset();for(let option=0;option<3;option++){assert(F.startCareer('테스트','투수'));for(let i=0;i<8;i++)assert(F.choose(option));assert.equal(F.ending(F.data.career.stats),['steady','star','legend'][option]);assert(F.data.inventory.itemIds.includes(['steady','star','legend'][option]));}assert.equal(F.data.inventory.itemIds.length,4);assert.equal(F.data.inventory.titleIds.length,3);F.grant(F.data);assert.equal(F.data.inventory.itemIds.length,4);F.startCareer('새 선수','내야수');assert.equal(F.data.inventory.itemIds.length,4);});
 test('진행 중 커리어 저장 복원',()=>{F.choose(1);const loaded=F.load(storage);assert.equal(loaded.career.step,1);assert.equal(loaded.career.log.length,1);assert.deepEqual(JSON.stringify(loaded.career),JSON.stringify(F.data.career));});
 test('획득 보상 디자인 저장·복원',()=>{assert(F.saveTicket({...ticket,frameId:'star',stickerIds:['rookie','legend']}));const t=F.load(storage).tickets[0];assert.equal(t.frameId,'star');assert.equal(t.stickerIds.length,2);});
 test('저장 실패 시 게임·티켓·프로필·게시·좋아요·댓글 전체 불변',()=>{for(const change of [()=>F.choose(2),()=>F.deleteTicket('test'),()=>F.saveTicket({...ticket,note:'실패'}),()=>F.transact(d=>d.profile.nickname='실패'),()=>F.transact(d=>d.posts=[]),()=>F.transact(d=>d.posts[0].liked=true),()=>F.transact(d=>d.posts[0].comments.push({text:'실패'}))]){const before=JSON.stringify(F.data),persisted=values.get(F.key);fail=true;assert.equal(change(),false);fail=false;assert.equal(JSON.stringify(F.data),before);assert.equal(values.get(F.key),persisted);}});
@@ -34,7 +35,7 @@ test('같은 후보도 선택에 따라 기록과 진로가 갈림',()=>{
  }
 });
 test('드래프트·시즌·과거 선수와 기념 티켓을 저장',()=>{
- F.data=F.defaults();
+ reset();
  assert(F.openCareerDraft());
  const board=F.data.careerDraft;
  assert.equal(JSON.stringify(F.load(storage).careerDraft),JSON.stringify(board));
@@ -56,7 +57,7 @@ test('드래프트·시즌·과거 선수와 기념 티켓을 저장',()=>{
  assert.equal(loaded.tickets[0].id,memory.id);
 });
 test('자동 시즌은 제안에서 멈추고 같은 선택을 복원',()=>{
- F.data=F.defaults();
+ reset();
  assert(F.openCareerDraft());
  const {id}=F.data.careerDraft;
  assert(F.signAutoProspect(id,'자동 진행 신인',0));
@@ -77,7 +78,7 @@ test('자동 시즌은 제안에서 멈추고 같은 선택을 복원',()=>{
 test('7시즌 은퇴 또는 8시즌 연장 후 티켓과 기록을 보관',()=>{
  const advance=(move,skip=false)=>F.advanceAutoCareer(F.data.career.id,F.data.career.moves.length,move,skip);
  for(const retireOption of [0,1]) {
-  F.data=F.defaults();
+  reset();
   assert(F.openCareerDraft());
   const {id}=F.data.careerDraft;
   assert(F.signAutoProspect(id,'은퇴하는 타자',1));
