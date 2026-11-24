@@ -35,7 +35,7 @@
   FP.communityPanel = () => `<section class="panel community-toolbar">
     <div class="community-sorts" role="group" aria-label="티켓 정렬">${Object.entries(labels).map(([key,label])=>
       `<button class="btn secondary" type="button" data-action="community-sort" data-value="${key}" aria-pressed="${FP.communitySort===key}">${label}</button>`).join('')}</div>
-    <div class="community-links">${FP.account.username?'<a class="text-link" href="#collection">내 수집함에서 티켓 올리기 →</a>':'<a class="text-link" href="#profile">시연용 아이디로 참여하기 →</a>'}
+    <div class="community-links">${FP.account.username?'<a class="text-link" href="#collection">내 수집함에서 티켓 올리기 →</a>':'<a class="text-link" href="#login" data-login-return="community">로그인하고 참여하기 →</a>'}
       <button type="button" class="btn secondary" data-action="community-refresh">새로고침</button></div>
   </section><div id="community-feed">${feed()}</div>`;
 
@@ -107,7 +107,7 @@
   };
 
   FP.communityAction = async (action,args={}) => {
-    if(!FP.account.username){location.hash='profile';FP.toast('시연용 아이디로 들어와서 참여해 주세요.');return false;}
+    if(!FP.account.username){location.hash='login';FP.toast('아이디로 들어와서 참여해 주세요.');return false;}
     if(FP.account.busy)return false;
     FP.account.busy=true;
     try {

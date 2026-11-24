@@ -7,6 +7,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
     for(const width of [320,390,768]){
       const base='http://fanplay.test/', records=new Map(), posts=[];
       const errors=[];
+      let resumeAvailable=true;
       async function pageForBrowser(){
         const page=await browser.newPage({viewport:{width,height:740},reducedMotion:'reduce'});
         page.on('pageerror',error=>errors.push(error.message));
@@ -23,6 +24,8 @@ const assert=require('node:assert/strict'),path=require('node:path');
           const identity=args.p_browser_key?args.p_player_id+':'+args.p_browser_key:null;
           switch(name){
             case 'fanplay_demo_status': return ok({ready:true,version:1});
+            case 'fanplay_demo_resume':
+              return resumeAvailable?ok(record||null):route.fulfill({status:404,json:{code:'PGRST202'}});
             case 'fanplay_demo_join':
               if(!record)records.set(args.p_player_id,{username:args.p_player_id,state:{profile:{team:args.p_team}},revision:0});
               return ok(records.get(args.p_player_id));
@@ -67,36 +70,58 @@ const assert=require('node:assert/strict'),path=require('node:path');
         return page;
       }
       async function enter(page,id,team){
-        await page.goto(base+'#profile');
-        const form=page.locator('form[data-account-action="login"]');
+        const form=page.locator('form[data-account-action="resume"]');
         assert.equal(await page.locator('input[type="email"], input[type="password"]').count(),0);
+        assert(await page.locator('.bottomnav').isHidden());
         await form.locator('[name="username"]').fill(id);
-        await form.locator('[name="team"]').selectOption(team);
+        assert.equal(await form.locator('[name="team"]').count(),0);
         await form.locator('button[type="submit"]').click();
+        if(team){
+          const form=page.locator('form[data-account-action="login"]');
+          const choice=form.locator(`[name="team"][value="${team}"]`);
+          await choice.focus();
+          await choice.press('Space');
+          assert(await choice.isChecked());
+          assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+          assert.equal(records.size,id==='demo_a'&&resumeAvailable?0:1);
+          await form.locator('button[type="submit"]').click();
+        }
         await page.waitForFunction(expected=>FP.account.username===expected&&!FP.account.busy,id);
+        assert.equal(await page.locator('.login-teams').count(),0);
       }
       const a=await pageForBrowser();
       await a.goto(base+'#community');
       await a.getByText('아직 이 목록에 티켓이 없어요.').waitFor();
       assert.equal(await a.locator('.bottomnav a').count(),4);
       assert.equal(await a.locator('.bottomnav a[href="#collection"]').count(),0);
+      await a.locator('.bottomnav a[href="#profile"]').click();
+      assert.equal(await a.locator('.account-panel').count(),0);
+      await a.getByText('이 브라우저에 저장된 티켓',{exact:true}).waitFor();
+      await a.locator('.my-collection-link').click();
+      await a.getByRole('link',{name:'첫 티켓 만들기'}).waitFor();
+      await a.evaluate(()=>FP.transact(d=>{d.tickets.push({...FP.sample,id:'sample'});}));
+      await a.reload();
+      await a.locator('[data-action="share"]').click();
+      await a.getByRole('link',{name:'비회원으로 계속'}).click();
+      await a.locator('[data-action="share"]').click();
       await enter(a,'demo_a','LG');
-      await a.locator('.profile-card').getByText('LG 트윈스',{exact:true}).waitFor();
+      await a.getByRole('heading',{name:'선택한 티켓 게시하기'}).waitFor();
+      assert.equal(await a.evaluate(()=>FP.data.tickets.length),0);
+      assert.equal(await a.locator('.bottomnav a[aria-current="page"]').getAttribute('href'),'#profile');
+      a.once('dialog',dialog=>dialog.accept('시연 티켓'));
+      await a.locator('[data-action="resume-share"]').click();
+      await a.getByText('시연 티켓',{exact:true}).waitFor();
+      assert.equal(await a.locator('[data-action="edit-post"]').count(),1);
+      await a.locator('.bottomnav a[href="#profile"]').click();
+      await a.locator('.profile-card').getByText('LG 트윈스',{exact:false}).waitFor();
       await a.getByRole('link',{name:'회원정보 수정'}).click();
       await a.locator('#profile-form [name="team"]').selectOption('KIA');
       await a.locator('#profile-form button[type="submit"]').click();
-      await a.locator('.profile-card').getByText('KIA 타이거즈',{exact:true}).waitFor();
-      await a.evaluate(()=>FP.transact(d=>{d.tickets.push({...FP.sample,id:'sample'});}));
-      await a.locator('.my-collection-link').click();
-      assert.equal(await a.locator('.bottomnav a[aria-current="page"]').getAttribute('href'),'#profile');
-      a.once('dialog',dialog=>dialog.accept('시연 티켓'));
-      await a.locator('[data-action="share"]').click();
-      await a.getByText('시연 티켓',{exact:true}).waitFor();
-      assert.equal(await a.locator('[data-action="edit-post"]').count(),1);
+      await a.locator('.profile-card').getByText('KIA 타이거즈',{exact:false}).waitFor();
       const b=await pageForBrowser();
-      await enter(b,'demo_a','KT');
-      await b.locator('.profile-card').getByText('KIA 타이거즈',{exact:true}).waitFor();
-      await b.locator('.bottomnav a[href="#community"]').click();
+      await b.goto(base+'#community');
+      await b.getByRole('link',{name:'로그인하고 참여하기 →'}).click();
+      await enter(b,'demo_a');
       await b.getByText('시연 티켓',{exact:true}).waitFor();
       assert.equal(await b.locator('[data-action="edit-post"], [data-action="delete-post"]').count(),0);
       await b.locator('[data-action="like"]').click();
@@ -113,13 +138,22 @@ const assert=require('node:assert/strict'),path=require('node:path');
       b.once('dialog',d=>d.accept());
       await b.getByRole('button',{name:'내 댓글 삭제'}).click();
       await b.getByText('아직 이 목록에 티켓이 없어요.').waitFor();
+      await a.locator('.bottomnav a[href="#community"]').click();
       await a.reload();
       await a.getByText('시연 티켓',{exact:true}).waitFor();
       await a.locator('[data-action="edit-post"]').waitFor();
       assert(await a.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       assert(await b.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      await b.locator('.bottomnav a[href="#profile"]').click();
+      await b.locator('.profile-card').getByText('KIA 타이거즈',{exact:false}).waitFor();
+      await b.getByRole('link',{name:'계정 및 기록 관리 →'}).click();
+      await b.getByRole('button',{name:'로그아웃'}).click();
+      await b.getByRole('link',{name:'로그인',exact:true}).click();
+      resumeAvailable=false;
+      await enter(b,'demo_a','KT');
+      await b.locator('.profile-card').getByText('KIA 타이거즈',{exact:false}).waitFor();
       assert.deepEqual(errors,[]);
-      console.log('PASS '+width+'px: ID-only entry, team, edit, post, same-ID device ownership, reload, reactions and rankings');
+      console.log('PASS '+width+'px: dedicated login, guest return, resume/new-ID team, missing lookup fallback, permissions, reactions and rankings');
       await a.close();await b.close();
     }
   } finally{await browser.close();}

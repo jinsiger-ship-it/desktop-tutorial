@@ -12,6 +12,7 @@
 2. SQL Editor에서 `select public.fanplay_demo_ticket_feed('latest', 0);`을 실행한다. 게시물이 없는 경우 빈 배열이 정상이다.
 3. 이전 개인 기록 중 공개에 동의한 글이 있다면 [선택 이전 SQL](../supabase/admin/20261124_publish_reviewed_legacy_posts.sql)의 조회문으로 확인한 뒤 선택한 글만 옮긴다. 작성 시각이 없는 글은 최신순 뒤에 표시된다. 기존 글의 사진·티켓 메모와 개인 반응은 옮기지 않는다.
 4. 배포 후 다른 두 브라우저에서 같은 아이디의 게임 기록을 확인하고, 게시물의 수정·삭제 버튼이 작성한 브라우저에만 표시되는지 확인한다.
+5. v0.9.1 로그인에서 기존 아이디가 바로 이어지도록 하려면 [로그인 조회 SQL](../supabase/migrations/2026112403_demo_login_lookup.sql)을 실행한다. 설치 전에도 팀 선택 후 기존 기록을 불러올 수 있다.
 
 기존 `fanplay_private.demo_records`, RLS, 관리자용 `fanplay_community_feed` 권한은 유지한다. 공개 앱은 반환 필드를 제한한 `fanplay_demo_ticket_feed`를 사용한다. 최신순 목록은 한 페이지에 20개, 좋아요순과 댓글순은 각각 상위 10개를 표시한다. Realtime 알림을 받으면 목록을 갱신하며, 연결 상태와 별도로 화면을 열어 둔 동안 12초마다 확인한다.
 
