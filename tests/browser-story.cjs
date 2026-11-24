@@ -17,8 +17,10 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  try {
   await page.goto(base+'/#game');await ready();
   await page.locator('[data-action="career-draft"]').click();
+  await page.locator('#career-form').waitFor();
   const candidates=await page.locator('[data-career-for="타자"] .draft-values').allTextContents();
-  await page.reload();await ready();assert.deepEqual(await page.locator('[data-career-for="타자"] .draft-values').allTextContents(),candidates);
+  await page.reload();await ready();await page.locator('#career-form').waitFor();
+  assert.deepEqual(await page.locator('[data-career-for="타자"] .draft-values').allTextContents(),candidates);
   for(const width of [320,390,760]){await page.setViewportSize({width,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));}
   await page.setViewportSize({width:390,height:844});
   await page.locator('[name="position"][value="투수"]').check();
