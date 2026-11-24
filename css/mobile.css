@@ -547,6 +547,63 @@ html {
 }
 .my-collection-link { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin: 12px 0; }
 .my-collection-link span { color: #455d54; }
+.my-collection-link div > span { display: block; font-size: 13px; }
+.guest-profile-card {
+  background: #fffdf7;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  text-align: start;
+  justify-items: start;
+}
+.guest-profile-card .profile-edit { color: var(--accent); background: #edf2e7; }
+.profile-login { width: 100%; margin-top: 8px; }
+.account-tools-link { color: var(--accent); text-decoration: underline; }
+.bottomnav[hidden] { display: none; }
+.login-screen { max-width: 450px; margin: 0 auto; }
+.login-screen > .text-link { color: var(--accent); }
+.login-screen h1 { color: var(--accent); margin: 12px 0; }
+.login-screen h1:focus { outline: none; }
+.login-screen .btn { width: 100%; }
+.login-intro { color: #465850; margin: 0 0 24px; }
+.login-screen form > label { margin: 0; }
+.login-note { margin: 8px 0 18px; font-size: 13px; color: #465850; }
+.login-error { color: #7a2c22; font-size: 13px; font-weight: 700; margin: 6px 0 12px; }
+.login-error:empty { margin: 0; }
+.login-guest { display: flex; width: fit-content; margin: 12px auto 0; text-decoration: underline; }
+.login-teams {
+  padding: 0;
+  border: 0;
+  margin: 0 0 16px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 8px;
+}
+.login-teams label { position: relative; margin: 0; }
+.login-teams label:last-child { grid-column: span 2; }
+.login-teams input, .login-teams legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.login-teams label > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 48px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdf7;
+  cursor: pointer;
+}
+.login-teams input:checked + span { background: #e5efdd; color: #173c30; border-color: #618261; }
+.login-teams input:checked + span::after { content: '✓'; }
+.login-teams input:focus-visible + span { outline: 3px solid #759994; outline-offset: 2px; }
+.pending-share { margin: 12px 0; }
 .community-toolbar { margin-block: 12px; }
 .community-sorts { display: flex; flex-wrap: wrap; gap: 8px; }
 .community-sorts .btn { padding-inline: 12px; }

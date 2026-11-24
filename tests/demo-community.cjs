@@ -13,12 +13,15 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     await runMigration('2026111801_demo_records.sql');
     await runMigration('2026112402_demo_community.sql');
     await runMigration('2026112402_demo_community.sql');
+    await runMigration('2026112403_demo_login_lookup.sql');
+    await runMigration('2026112403_demo_login_lookup.sql');
     async function publicQuery(sql,args=[]){
       await db.exec('set role anon');
       try{return (await db.query(sql,args)).rows[0]?.result;}finally{await db.exec('reset role');}
     }
     const join=(id,team)=>publicQuery('select public.fanplay_demo_join($1,$2) result',[id,team]);
     const open=id=>publicQuery('select public.fanplay_demo_open($1) result',[id]);
+    const resume=id=>publicQuery('select public.fanplay_demo_resume($1) result',[id]);
     const feed=(identity,sort='latest',page=0)=>publicQuery(
       'select public.fanplay_demo_ticket_feed($1,$2,$3,$4) result',[sort,page,identity?.id,identity?.key]);
     const write=(identity,action,id=null,message='',ticket=null,liked=null,comment=null)=>publicQuery(
@@ -28,7 +31,12 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
     await publicQuery('select public.fanplay_demo_save($1,$2,$3) result',['old_demo',old.revision,'{"profile":{"team":"한화"},"tickets":[{"id":"old_ticket"}]}']);
     assert.equal((await join('old_demo','LG')).state.profile.team,'한화');
     assert.equal((await open('old_demo')).state.tickets[0].id,'old_ticket');
+    assert.deepEqual(await resume('old_demo'),await open('old_demo'));
+    assert.equal(await resume(a.id),null);
+    assert.equal((await db.query('select count(*) as count from fanplay_private.demo_records where player_id=$1',[a.id])).rows[0].count,0);
+    await assert.rejects(()=>resume('INVALID'),{code:'PT400'});
     assert.equal((await join(a.id,'LG')).state.profile.team,'LG');
+    assert.equal((await resume(a.id)).state.profile.team,'LG');
     assert.equal((await join(a.id,'KT')).state.profile.team,'LG');
     await join(b.id,'KIA');
     await assert.rejects(()=>join('demo_c','fake'),{code:'PT400'});

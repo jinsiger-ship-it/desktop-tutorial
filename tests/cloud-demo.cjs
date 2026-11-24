@@ -27,7 +27,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   const file=path.join(root,pathname==='/'?'index.html':pathname.slice(1));
   const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.webp':'image/webp','.mp4':'video/mp4'};
   res.setHeader('Content-Type',mime[path.extname(file)]);
-  // Keep this compatibility check pointed at the previous shared-ID screen.
+  // Exercise the original shared-ID RPCs without the community migration.
   if(path.extname(file)==='.html')return res.end(fs.readFileSync(file,'utf8')
     .replace(/<script src="js\/community\.js[^"]*"><\/script>/,''));
   fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res);
@@ -44,10 +44,10 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   });return c;
  };
  const base='http://127.0.0.1:'+server.address().port;
- const go=async c=>{const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(base+'/#profile');await p.waitForFunction(()=>!FP.account.checking);return p;};
- const open=async(p,id)=>{await p.locator('[data-account-action="login"] [name="username"]').fill(id);await p.locator('[data-account-action="login"] button').click();await p.waitForFunction(()=>FP.account.username&&!FP.account.busy);};
+ const go=async c=>{const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(base+'/#login');await p.waitForFunction(()=>!FP.account.checking);return p;};
+ const open=async(p,id)=>{await p.locator('[data-account-action="login"] [name="username"]').fill(id);await p.locator('[data-account-action="login"] button').click();await p.waitForFunction(()=>FP.account.username&&!FP.account.busy);await p.locator('a[href="#account"]').click();};
  try{
-  missing=true;const c=await context(),p=await go(c);assert(await p.locator('.account-panel').innerText().then(t=>t.includes('設定')||t.includes('설정')));
+  missing=true;const c=await context(),p=await go(c);assert(await p.locator('.login-screen').innerText().then(t=>t.includes('설정')));
   assert.equal(await p.locator('[name="password"]').count(),0);
   missing=false;await p.locator('[data-action="cloud-retry"]').click();await p.waitForFunction(()=>FP.account.available&&!FP.account.checking);
   await p.evaluate(()=>FP.transact(d=>{d.tickets.push({...FP.sample,id:'device-ticket'});}));
@@ -58,12 +58,13 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   const before=await p2.evaluate(()=>JSON.stringify(FP.data));
   assert.equal(await p2.evaluate(()=>FP.transact(d=>{d.profile.nickname='옛 기록';})),false);
   assert.equal(await p2.evaluate(()=>JSON.stringify(FP.data)),before);
-  await p2.getByText('기록 관리',{exact:true}).click();
+  await p2.getByText('저장 도구',{exact:true}).click();
   p2.once('dialog',d=>d.accept());await p2.locator('[data-action="cloud-refresh"]').click();await p2.waitForFunction(()=>!FP.account.busy);
   assert.equal(await p2.evaluate(()=>FP.data.profile.nickname),'기기 하나');
   offline=true;assert.equal(await p2.evaluate(()=>FP.transact(d=>{d.profile.nickname='연결 실패';})),false);assert.equal(await p2.evaluate(()=>FP.data.profile.nickname),'기기 하나');offline=false;
   await p.reload();await p.waitForFunction(()=>!FP.account.checking);assert.equal(await p.evaluate(()=>FP.account.username),'demo_one');assert.equal(await p.evaluate(()=>FP.data.profile.nickname),'기기 하나');
   await p.locator('[data-account-action="logout"] button').click();await p.waitForFunction(()=>!FP.account.busy&&!FP.account.username);assert.equal(await p.evaluate(()=>FP.data.tickets[0].id),'device-ticket');
+  await p.getByRole('link',{name:'로그인',exact:true}).click();
   await open(p,'other_demo');assert.equal(await p.evaluate(()=>FP.data.tickets.length),0);
   assert.deepEqual(errors,[]);
   fs.mkdirSync(path.join(root,'qa'),{recursive:true});await p.screenshot({path:path.join(root,'qa/cloud-demo.png'),fullPage:true});
