@@ -1,4 +1,4 @@
-name: Deploy FANPLAY to GitHub Pages
+name: Deploy FANPLAY prototype to GitHub Pages
 on:
   push:
     branches: [main]
@@ -12,28 +12,42 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Check JavaScript syntax
+      - name: Verify careers and saved data
         run: |
           for file in js/*.js; do node --check "$file"; done
-      - uses: actions/configure-pages@v5
-      - name: Prepare website
+          node tests/integration.cjs
+          node tests/screens.cjs
+          node tests/story.cjs
+          node tests/merged-career.cjs
+          node tests/accounts.cjs
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Prepare public files
         run: |
-          mkdir -p public
-          cp index.html public/
-          cp -R js css assets public/
-          touch public/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+          site="$RUNNER_TEMP/fanplay-pages"
+          mkdir -p "$site/snapshots"
+          touch "$site/.nojekyll"
+          cp index.html "$site/"
+          cp -R pages css js assets "$site/"
+          for version in 2026-11-06-fanplay 2026-11-10-fanplay-mobile; do
+            mkdir -p "$site/snapshots/$version"
+            cp -R "snapshots/$version/index.html" "snapshots/$version/css" "snapshots/$version/js" "$site/snapshots/$version/"
+          done
+      - name: Upload website files
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: public
-      - name: Deploy to Pages
+          path: ${{ runner.temp }}/fanplay-pages
+      - name: Deploy site
         id: deployment
         uses: actions/deploy-pages@v4
