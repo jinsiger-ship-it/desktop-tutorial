@@ -151,11 +151,20 @@ function decorationPicker() {
 }
 function collection(){const ts=FP.data.tickets.filter(t=>filter==='전체'||t.mode===filter);return `${heading('MY COLLECTION','나의 티켓 수집함',`${FP.data.tickets.length}장의 티켓. 다시 꺼내 보고 싶은 장면들.`)}<div class="toolbar"><div class="tabs">${['전체','직관','중계','커리어'].map(f=>button(f,'filter',f,filter===f?'':'secondary')).join('')}</div><a class="btn" href="#create">+ 티켓 만들기</a></div>${ts.length?`<div class="collection-grid">${ts.map(t=>`<section>${t.id===FP.data.profile.featuredTicketId?'<div class="badge">★ 대표 티켓</div>':''}${FP.ticket(t)}<div class="card-actions">${button('상세 / 수정','edit',t.id,'secondary')}${button('대표 지정','feature',t.id,'secondary')}${button('게시','share',t.id,'secondary')}${button('삭제','delete',t.id,'quiet')}</div></section>`).join('')}</div>`:empty('아직 이곳에 담긴 순간이 없어요.')}`;}
 function legacyGame(c){const labels=c.position==='투수'?['구위','제구','체력']:['타격','수비','체력'],last=c.log.at(-1),end=FP.ending(c.stats),title=FP.titles.find(t=>t.id===end);return `${heading('PLAYER CAREER',`${E(c.name)}의 야구 일기`,`${E(c.position)} · ${c.step===8?'8시즌 완주':`${c.step+1}번째 시즌`}`)}<div class="game-grid"><aside class="panel"><span class="eyebrow">PLAYER REPORT</span><h2>${E(c.name)}</h2>${c.stats.map((n,i)=>`<div class="stat"><label>${labels[i]} <b>${n}</b></label><progress max="100" value="${n}">${n}</progress></div>`).join('')}<p>종합 ${Math.round(c.stats.reduce((a,b)=>a+b)/3)}</p><div class="season-dots">${Array.from({length:8},(_,i)=>`<span class="${i<c.step?'done':''}">${i+1}</span>`).join('')}</div><p class="muted">결말 기준: 종합 65 미만 / 65~79 / 80 이상 (반올림 전 평균)</p>${button('새 선수로 시작','restart','','quiet')}</aside><section class="panel scene">${c.step===8?`<div class="eyebrow">CAREER COMPLETE</div><div class="ending-icon">${end==='legend'?'🏆':'✦'}</div><h2>${{steady:'꾸준함의 선수',star:'구단의 간판',legend:'명예의 전당'}[end]}</h2><p>여덟 시즌의 기록이 나만의 컬렉션이 되었습니다.</p><div class="reward-banner">획득 아이템: 첫 완주 별 + ${FP.items.find(i=>i.id===end).name}<br>칭호: ${title.name}<small>이미 보유한 보상은 중복 추가하지 않습니다.</small></div><a class="btn" href="#collection">보상을 티켓에 적용하기 ↗</a><a class="text-link" href="#profile">칭호 전시하기 →</a>`:`<div class="eyebrow">SEASON ${String(c.step+1).padStart(2,'0')} / 08</div><h2>${FP.scenes[c.step].title}</h2><p>${FP.scenes[c.step][c.position==='투수'?'pitcher':'batter']}</p>${c.step===5?`<p class="context">${c.stats[0]>=60?'쌓아온 기술이 승부처의 자신감이 됩니다.':'아직 다듬어야 할 기술이 있지만, 다음 선택은 열려 있습니다.'}</p>`:''}<div class="choices">${FP.scenes[c.step].choices.map((ch,i)=>`<button data-action="choose" data-value="${i}"><span>0${i+1}</span><div>${ch}<small>${labels.map((l,j)=>`${l} +${FP.effects[i][j]}`).join(' · ')}</small></div><b>↗</b></button>`).join('')}</div>`}${last?`<div class="result"><b>직전 선택 결과</b><p>${E(last.text)}</p><small>${labels.map((l,i)=>`${l} +${last.delta[i]}`).join(' · ')}</small></div>`:''}</section></div><details class="panel history"><summary>시즌 기록 ${c.log.length}개</summary>${c.log.map(l=>`<p><b>${l.season}시즌</b> ${E(l.text)} <small>(${l.delta.map(n=>'+'+n).join(' / ')})</small></p>`).join('')||'<p>첫 시즌을 시작해 보세요.</p>'}</details>`;}
-function community(){return `${heading('FAN COMMUNITY','우리들의 야구 이야기','커뮤니티 시연: 게시글·좋아요·댓글은 나의 기록으로 저장됩니다.')}<div class="notice community-cta"><div><strong>내 티켓 자랑하기</strong><p>수집함에서 티켓을 골라 게시할 수 있어요.</p></div><a class="btn" href="#collection">수집함 열기</a></div>${FP.data.posts.length?`<div class="collection-grid">${FP.data.posts.map(p=>`<article class="post panel"><div class="section-title"><b>${E(p.nickname)}</b>${button('게시글 삭제','delete-post',p.id,'quiet')}</div><p>${E(p.text)}</p>${FP.ticket(p.ticket)}<div class="actions">${button(p.liked?'♥ 좋아요 1':'♡ 좋아요 0','like',p.id,'secondary')}<span class="muted">댓글 ${p.comments.length}</span></div><div class="comments">${p.comments.map(c=>`<p><b>${E(c.nickname)}</b> ${E(c.text)}</p>`).join('')}</div><form class="comment-form" data-post="${E(p.id)}"><input name="comment" required maxlength="200" aria-label="댓글" placeholder="이 순간에 한마디"><button class="btn" type="submit">등록</button></form></article>`).join('')}</div>`:empty('첫 번째 야구 이야기를 기다려요.','collection','수집함에서 게시하기')}`;}
-function profile(){const d=FP.data,t=d.tickets.find(t=>t.id===d.profile.featuredTicketId);return `${heading('MY PAGE','마이페이지','티켓과 커리어, 나의 활동을 한눈에 확인하세요.')}
-${FP.accountPanel()}
-<section class="profile-card"><div class="profile-avatar" aria-hidden="true">⚾</div><strong>${E(d.profile.nickname)}</strong><small>${E(FP.teams.find(team => team[0] === d.profile.team)[1])}</small></section>
-<div class="profile-metrics"><div><strong>${d.tickets.length}</strong><small>수집 티켓</small></div><div><strong>${d.posts.length}</strong><small>자랑 글</small></div><div><strong>${d.career?.step || 0}</strong><small>플레이 시즌</small></div></div><div class="profile-grid"><form id="profile-form" class="panel"><h2>나의 프로필</h2>${field('닉네임','nickname',d.profile.nickname,'text','maxlength="24" required')}<label>응원팀 테마<select name="team">${FP.teams.map(t=>`<option value="${t[0]}" ${d.profile.team===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select></label><label>전시할 칭호<select name="title"><option value="">칭호 없음</option>${FP.titles.filter(t=>d.inventory.titleIds.includes(t.id)).map(t=>`<option value="${t.id}" ${d.profile.selectedTitleId===t.id?'selected':''}>${t.name}</option>`).join('')}</select></label><button class="btn" type="submit">프로필 저장</button><div class="activity"><b>${d.tickets.length}</b> 티켓 · <b>${d.posts.length}</b> 게시글 · <b>${d.inventory.itemIds.length}</b> 보상</div><h3>최근 활동</h3><p class="muted">${d.tickets[0]?`최근 저장 티켓: ${E(d.tickets[0].date)} · ${E(d.tickets[0].home)}`:'저장한 티켓 없음'}</p><p class="muted">커리어 ${d.career?`${E(d.career.name)} / ${d.career.step}시즌 진행`:'시작 전'}</p></form><section><div class="section-title"><h2>대표 티켓</h2>${d.profile.selectedTitleId?`<span class="badge">✦ ${FP.titles.find(t=>t.id===d.profile.selectedTitleId).name}</span>`:''}</div>${t?FP.ticket(t):empty('대표 티켓을 지정해 주세요.','collection','수집함 열기')}${t?button('대표 지정 해제','unfeature','','secondary'):''}</section></div><p class="compact-decor-link">장식 ${d.inventory.itemIds.length}개 · 티켓 꾸미기에서 확인할 수 있어요. <a class="text-link" href="#collection">티켓 고르기 →</a></p>`;}
+function community(){if(FP.communityMode)return heading('FAN COMMUNITY','우리들의 야구 이야기','공개 티켓과 인기 순위를 확인해요.')+FP.communityPanel();return `${heading('FAN COMMUNITY','우리들의 야구 이야기','커뮤니티 시연: 게시글·좋아요·댓글은 나의 기록으로 저장됩니다.')}<div class="notice community-cta"><div><strong>내 티켓 자랑하기</strong><p>수집함에서 티켓을 골라 게시할 수 있어요.</p></div><a class="btn" href="#collection">수집함 열기</a></div>${FP.data.posts.length?`<div class="collection-grid">${FP.data.posts.map(p=>`<article class="post panel"><div class="section-title"><b>${E(p.nickname)}</b>${button('게시글 삭제','delete-post',p.id,'quiet')}</div><p>${E(p.text)}</p>${FP.ticket(p.ticket)}<div class="actions">${button(p.liked?'♥ 좋아요 1':'♡ 좋아요 0','like',p.id,'secondary')}<span class="muted">댓글 ${p.comments.length}</span></div><div class="comments">${p.comments.map(c=>`<p><b>${E(c.nickname)}</b> ${E(c.text)}</p>`).join('')}</div><form class="comment-form" data-post="${E(p.id)}"><input name="comment" required maxlength="200" aria-label="댓글" placeholder="이 순간에 한마디"><button class="btn" type="submit">등록</button></form></article>`).join('')}</div>`:empty('첫 번째 야구 이야기를 기다려요.','collection','수집함에서 게시하기')}`;}
+function profile(){
+ const d=FP.data,t=d.tickets.find(ticket=>ticket.id===d.profile.featuredTicketId);
+ const team=FP.teams.find(([id])=>id===d.profile.team);
+ return `${heading('MY PAGE','마이페이지')}
+ <section class="profile-card">
+  <a class="profile-edit" href="#profile-edit" aria-label="회원정보 수정" title="회원정보 수정"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 16-1 5 5-1L20 8l-4-4L4 16Z M14 6l4 4"/></svg></a>
+  <div class="profile-avatar" aria-hidden="true">⚾</div><strong>${E(d.profile.nickname)}</strong><small>${E(team[1])}</small>
+ </section>
+ <a class="panel my-collection-link" href="#collection"><strong>수집함</strong><span>티켓 ${d.tickets.length}장 · 장식 ${d.inventory.itemIds.length}개 →</span></a>
+ ${FP.accountPanel()}
+ <div class="profile-grid"><section><div class="section-title"><h2>대표 티켓</h2>${d.profile.selectedTitleId?`<span class="badge">✦ ${FP.titles.find(t=>t.id===d.profile.selectedTitleId).name}</span>`:''}</div>${t?FP.ticket(t):empty('대표 티켓을 지정해 주세요.','collection','수집함 열기')}${t?button('대표 지정 해제','unfeature','','secondary'):''}</section></div>`;
+}
+function profileEdit(){const d=FP.data;return `<a class="text-link" href="#profile">← 마이페이지</a>${heading('MY PAGE','회원정보 수정')}<form id="profile-form" class="panel">${field('닉네임','nickname',d.profile.nickname,'text','maxlength="24" required')}<label>응원팀 테마<select name="team">${FP.teams.map(t=>`<option value="${t[0]}" ${d.profile.team===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select></label><label>전시할 칭호<select name="title"><option value="">칭호 없음</option>${FP.titles.filter(t=>d.inventory.titleIds.includes(t.id)).map(t=>`<option value="${t.id}" ${d.profile.selectedTitleId===t.id?'selected':''}>${t.name}</option>`).join('')}</select></label><button class="btn" type="submit">회원정보 저장</button></form>`;}
 function careerSummary(career) {
   if([6,7].includes(career.rules)) return storySummary(career);
   const ticketId = `career-${career.id}`;
@@ -466,12 +475,12 @@ async function advanceTimeline(id, version, move, skip=false) {
   }
 }
 
-const screens={home,create:editor,collection,game,community,profile};
+const screens={home,create:editor,collection,game,community,profile,'profile-edit':profileEdit};
 function render() {
   theme();
   const route = location.hash.slice(1) || 'home';
   const view = Object.hasOwn(screens, route) ? route : 'home';
-  const activeTab = view === 'create' ? 'home' : view;
+  const activeTab = view === 'create' ? 'home' : ['collection','profile-edit'].includes(view) ? 'profile' : view;
   const sections = view==='game' ? ['.history','.career-archive','.ability-details'] : ['.cloud-tools'];
   const openSections = sections.filter(selector=>app.querySelector?.(selector)?.open);
   const previousClip = app.querySelector?.('.broadcast-clip');
@@ -490,6 +499,7 @@ function render() {
     if (selected) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
+  void FP.watchCommunity?.(view==='community');
   scheduleCareer();
 }
 function syncDraft(form){
@@ -534,7 +544,7 @@ async function submitAccount(form) {
     FP.toast(FP.cloudMode ? (result.username?'온라인 시연 기록을 불러왔어요.':'아이디 사용을 종료했어요.') : action === 'delete' ? '계정과 기록을 삭제했습니다.'
       : result.username ? '로그인했습니다.' : '로그아웃했습니다.');
   } catch (error) {
-    FP.toast(error.status ? error.message : '계정 서버에 연결하지 못했습니다.');
+    FP.toast(error.message || '계정 서버에 연결하지 못했습니다.');
   } finally {
     FP.account.busy = false;
     submit.disabled = false;
@@ -548,7 +558,13 @@ if(form.id==='custom-career-form'){
  if(valid&&await FP.signCustomCareer(data.get('board'),data.get('name'),data.get('position'),data.get('hand'),valid))render();
  return;
 }
-if(form.dataset.accountAction){await submitAccount(form);return;}if(form.id==='ticket-form'){syncDraft(form);if(photoBusy)return;if(formStage<3){formStage++;render();}else if(await FP.saveTicket(draft)){draft=null;location.hash='collection';FP.toast('티켓을 수집함에 저장했습니다.');}}else if(form.id==='career-form'){if(await FP.signStoryPlayer(form.elements.board.value,form.elements.name.value,new FormData(form).get('position'),new FormData(form).get('hand-'+new FormData(form).get('position')),Number(new FormData(form).get('candidate-'+new FormData(form).get('position')))))render();}else if(form.id==='profile-form'){if(await FP.transact(d=>{d.profile.nickname=form.elements.nickname.value.trim()||'야구팬';d.profile.team=form.elements.team.value;d.profile.selectedTitleId=form.elements.title.value||null;})){render();FP.toast('프로필을 저장했습니다.');}}else if(form.classList.contains('comment-form')){const value=form.elements.comment.value.trim();if(value&&await FP.transact(d=>{d.posts.find(p=>p.id===form.dataset.post).comments.push({nickname:d.profile.nickname,text:value.slice(0,200)});}))render();}});
+if(form.dataset.accountAction){await submitAccount(form);return;}
+if(FP.communityMode && form.classList.contains('comment-form')){
+ const comment=form.elements.comment.value.trim();
+ if(comment && await FP.communityAction('comment',{p_post_id:form.dataset.post,p_text:comment})){form.reset();await FP.refreshCommunity(true);}
+ return;
+}
+if(form.id==='ticket-form'){syncDraft(form);if(photoBusy)return;if(formStage<3){formStage++;render();}else if(await FP.saveTicket(draft)){draft=null;location.hash='collection';FP.toast('티켓을 수집함에 저장했습니다.');}}else if(form.id==='career-form'){if(await FP.signStoryPlayer(form.elements.board.value,form.elements.name.value,new FormData(form).get('position'),new FormData(form).get('hand-'+new FormData(form).get('position')),Number(new FormData(form).get('candidate-'+new FormData(form).get('position')))))render();}else if(form.id==='profile-form'){if(await FP.transact(d=>{d.profile.nickname=form.elements.nickname.value.trim()||'야구팬';d.profile.team=form.elements.team.value;d.profile.selectedTitleId=form.elements.title.value||null;})){location.hash='profile';FP.toast('프로필을 저장했습니다.');}}else if(form.classList.contains('comment-form')){const value=form.elements.comment.value.trim();if(value&&await FP.transact(d=>{d.posts.find(p=>p.id===form.dataset.post).comments.push({nickname:d.profile.nickname,text:value.slice(0,200)});}))render();}});
 app.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b||FP.account.checking||FP.account.busy)return;const {action:a,value:v}=b.dataset;
 if(a==='stage'){syncDraft(document.querySelector('#ticket-form'));formStage=Number(v);render();}
 if(a==='remove-photo'){draft.photo='';render();}
@@ -609,6 +625,44 @@ if(a==='career-ticket') {
  }
 }
 if(a==='restart'&&confirm('현재 커리어를 끝내고 새 선수를 만들까요? 획득 보상은 유지됩니다.')&&await FP.transact(d=>{d.career=null;}))render();
+if(a==='community-sort'&&FP.communityMode){
+ FP.communitySort=v;FP.communityPage=0;FP.communityLoaded=false;FP.communityPosts=[];FP.communityError='';render();
+ app.querySelector('[data-action="community-sort"][aria-pressed="true"]')?.focus({preventScroll:true});
+ await FP.refreshCommunity(true);return;
+}
+if(a==='community-refresh'&&FP.communityMode){await FP.refreshCommunity(true);return;}
+if(a==='community-page'&&FP.communityMode){
+ FP.communityPage=Math.max(0,FP.communityPage+Number(v));await FP.refreshCommunity(true);window.scrollTo(0,0);return;
+}
+if(FP.communityMode&&a==='share'){
+ if(!FP.account.username){location.hash='profile';FP.toast('시연용 아이디로 들어와서 티켓을 게시해 주세요.');return;}
+ const ticket=FP.ticketData(FP.data.tickets.find(t=>t.id===v));
+ if(!ticket)return;
+ const message=prompt('티켓과 사진, 티켓 메모가 공개돼요. 함께 남길 이야기 (최대 300자)');
+ if(message===null)return;
+ if(await FP.communityAction('post',{p_ticket:ticket,p_text:message.slice(0,300)})){FP.communitySort='latest';FP.communityPage=0;location.hash='community';FP.toast('티켓을 게시했어요.');}
+ return;
+}
+if(FP.communityMode&&a==='like'){
+ const post=FP.communityPosts.find(item=>item.id===v);
+ if(post&&await FP.communityAction('like',{p_post_id:v,p_liked:!post.liked}))await FP.refreshCommunity(true);
+ return;
+}
+if(FP.communityMode&&a==='delete-post'){
+ if(confirm('이 게시글과 댓글을 삭제할까요?')&&await FP.communityAction('delete',{p_post_id:v}))await FP.refreshCommunity(true);
+ return;
+}
+if(FP.communityMode&&a==='edit-post'){
+ const post=FP.communityPosts.find(item=>item.id===v&&item.mine);
+ if(!post)return;
+ const message=prompt('게시글 글을 수정해 주세요. 티켓과 작성 시간은 유지돼요. (최대 300자)',post.text);
+ if(message!==null&&await FP.communityAction('edit',{p_post_id:v,p_text:message.slice(0,300)}))await FP.refreshCommunity(true);
+ return;
+}
+if(FP.communityMode&&a==='delete-comment'){
+ if(confirm('이 댓글을 삭제할까요?')&&await FP.communityAction('remove-comment',{p_post_id:b.dataset.post,p_comment_id:v}))await FP.refreshCommunity(true);
+ return;
+}
 if(a==='share'){const text=prompt('티켓과 함께 남길 이야기 (최대 300자)');if(text!==null&&await FP.transact(d=>{d.posts.unshift({id:uid(),nickname:d.profile.nickname,text:text.slice(0,300),ticket:FP.copy(d.tickets.find(t=>t.id===v)),liked:false,comments:[]});})){location.hash='community';FP.toast('커뮤니티 시연 기록에 저장했습니다.');}}
 if(a==='like'&&await FP.transact(d=>{const p=d.posts.find(p=>p.id===v);p.liked=!p.liked;}))render();
 if(a==='delete-post'&&confirm('이 게시글과 댓글을 삭제할까요?')&&await FP.transact(d=>{d.posts=d.posts.filter(p=>p.id!==v);}))render();
@@ -621,5 +675,6 @@ restoredAccount.then(available => {
   if (!available && location.hash !== '#profile') {scheduleCareer();return;}
   if (FP.account.username) { draft = null; appliedMatch = null; formStage = 1; }
   render();
+  if(location.hash==='#community')void FP.refreshCommunity?.(true);
 });
 if(FP.loadWarning)FP.toast('저장값을 읽지 못해 기본 화면으로 시작했습니다. 기존 저장값은 덮어쓰지 않았습니다.');else if(FP.migrated)FP.toast('기존 Diamond Memories 기록을 불러왔습니다. 다음 저장 시 FANPLAY 형식으로 저장합니다.');

@@ -6,6 +6,21 @@
  FP.cloudMode=true;
  FP.cloudError='';
  const activeKey='fanplay-demo-active-id-v1';
+ const previousKey='fanplay-demo-last-id-v1';
+ FP.activeDemoId=()=>{try{return localStorage.getItem(activeKey)||'';}catch{return '';}};
+ FP.lastDemoId=()=>{try{return FP.activeDemoId()||localStorage.getItem(previousKey)||'';}catch{return '';}};
+ FP.communityIdentity=(create=false)=>{
+  const id=FP.account.username;
+  if(!id)return {};
+  const storageKey='fanplay-community-browser-v1:'+id;
+  let previous;
+  try {previous=localStorage.getItem(storageKey);} catch(error){if(create)throw error;}
+  if(/^[\da-f]{64}$/.test(previous||''))return {p_player_id:id,p_browser_key:previous};
+  if(!create)return {};
+  const secret=Array.from(crypto.getRandomValues(new Uint8Array(32)),byte=>byte.toString(16).padStart(2,'0')).join('');
+  localStorage.setItem(storageKey,secret);
+  return {p_player_id:id,p_browser_key:localStorage.getItem(storageKey)};
+ };
  const validId=id=>typeof id==='string'&&/^[a-z0-9_]{3,24}$/.test(id);
  FP.cloudRpc = async (name,body={}) => {
   let response;
@@ -34,8 +49,11 @@
   if(route==='login'){
    const id=String(body.username||'').trim().toLowerCase();
    if(!validId(id))throw Object.assign(new Error('아이디는 영문 소문자·숫자·밑줄 3~24자로 입력해 주세요.'),{status:400});
-   const result=validateResult(await FP.cloudRpc('fanplay_demo_open',{p_player_id:id}));
-   try{localStorage.setItem(activeKey,id);}catch{}
+   const team=FP.communityMode ? FP.teams.find(([key])=>key===body.team)?.[0] : null;
+   const result=validateResult(team
+    ? await FP.cloudRpc('fanplay_demo_join',{p_player_id:id,p_team:team})
+    : await FP.cloudRpc('fanplay_demo_open',{p_player_id:id}));
+   try{localStorage.setItem(activeKey,id);localStorage.setItem(previousKey,id);}catch{}
    return result;
   }
   if(route==='state'){
@@ -68,9 +86,11 @@
    <button type="button" class="text-link" data-action="guest-review">이 기기 기록 가져오기 다시 확인</button><button type="button" class="text-link" data-action="import-backup">가져오기 전 사본 내려받기</button></div></details>
    <form data-account-action="logout"><button class="btn secondary" type="submit">아이디 사용 종료</button></form>`;
   else content=`${!available?`<p role="status" class="muted">${FP.esc(FP.cloudError||'온라인 저장소를 연결해 주세요.')}</p><button class="btn secondary" data-action="cloud-retry">연결 다시 확인</button>`:
-   `<form data-account-action="login"><label>시연용 아이디<input name="username" autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[a-zA-Z0-9_]{3,24}" minlength="3" maxlength="24" required placeholder="예: fanplay_demo01"></label><p class="muted">영문·숫자·밑줄 3~24자. 대문자는 소문자로 저장해요. 처음 쓰는 아이디면 새 기록을 만들어요.</p>${intro}<button class="btn" type="submit">이 아이디로 시작·이어하기</button></form>`}
+   `<form data-account-action="login"><label>시연용 아이디<input name="username" autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[a-zA-Z0-9_]{3,24}" minlength="3" maxlength="24" required placeholder="예: fanplay_demo01"></label>
+    <label>응원팀 테마 (새 아이디용)<select name="team">${FP.teams.map(([id,name])=>`<option value="${FP.esc(id)}">${FP.esc(name)}</option>`).join('')}</select></label>
+    <p class="muted">영문·숫자·밑줄 3~24자. 처음 쓰는 아이디면 새 기록을 만들어요.</p>${intro}<button class="btn" type="submit">이 아이디로 시작·이어하기</button></form>`}
    `;
-  return `<section class="panel account-panel"><h2>온라인 시연 기록</h2>${!username&&!checking?'<div class="storage-mode"><strong>브라우저에 저장 중</strong><span>이 기기에서 이어할 수 있어요.</span></div>':''}${content}${username?intro:''}<details><summary>기록 저장 안내</summary><p>아이디와 티켓·게임·장식·프로필·커뮤니티 시연 기록을 프로젝트의 Supabase DB에 저장해요. 본인 인증이나 비밀번호 보호는 제공하지 않아요. 사용 종료는 이 기기에서 아이디 사용을 끝내며 온라인 기록은 지우지 않아요. 과제 운영자가 DB에서 기록을 삭제할 수 있어요.</p></details></section>`;
+  return `<section class="panel account-panel"><h2>시연용 아이디</h2>${!username&&!checking?'<p class="storage-mode">브라우저에 저장 중</p>':''}${content}${username?intro:''}<details><summary>기록과 게시물 관리</summary><p>같은 아이디로 다른 기기에서도 게임과 티켓 기록을 이어갈 수 있어요. 게시글과 댓글의 수정·삭제는 처음 작성한 브라우저에서 할 수 있어요. 브라우저의 사이트 데이터를 지우면 수정·삭제 권한을 잃을 수 있어요.</p></details></section>`;
  };
  FP.downloadDemoState=()=>{
   const url=URL.createObjectURL(new Blob([JSON.stringify(FP.data,null,2)],{type:'application/json'}));
