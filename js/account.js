@@ -1,6 +1,6 @@
 /* 로그인 세션은 서버 쿠키로 복원하고 계정 기록은 응답으로만 교체합니다. */
 const accountServerEnabled = typeof document!=='undefined' && document.currentScript?.hasAttribute('data-account-server');
-FP.account = { available: false, checking: false, busy: false, username: null, revision: 0 };
+FP.account = { available: false, checking: false, busy: false, username: null, revision: 0, generation: 0, restorePending: false };
 FP.accountSaveStatus = '저장된 기록을 불러왔어요.';
 FP.guestFingerprint = data => {
   const text=JSON.stringify(data);
@@ -11,7 +11,7 @@ FP.guestFingerprint = data => {
 FP.guestImportCandidate = () => {
   if(!FP.account.username)return null;
   const guest=FP.load(localStorage);
-  if(!guest.tickets.length&&!guest.posts.length&&!guest.career&&!guest.careerDraft&&!guest.careerHistory.length&&!guest.savedCareers.length&&!guest.inventory.itemIds.length) return null;
+  if(!guest.tickets.length&&!guest.posts.length&&!guest.career&&!guest.careerDraft&&!guest.careerHistory.length&&!guest.savedCareers.length&&!guest.savedDrafts.length&&!guest.inventory.itemIds.length&&!guest.inventory.titleIds.length) return null;
   try{if(localStorage.getItem('fanplay-imported-'+FP.account.username)===FP.guestFingerprint(guest)) return null;}catch{}
   return guest;
 };
@@ -34,6 +34,9 @@ FP.mergeGuestRecords = (account,guest,prefer) => {
   next.careerDraft=next.career?null:first.careerDraft||second.careerDraft;
   next.careerHistory=union(first.careerHistory,second.careerHistory);
   next.savedCareers=union(first.savedCareers,second.savedCareers);
+  const drafts=union([first.careerDraft,...(first.savedDrafts||[])].filter(Boolean),
+    [second.careerDraft,...(second.savedDrafts||[])].filter(Boolean));
+  next.savedDrafts=drafts.filter(candidate=>candidate.id!==next.careerDraft?.id);
   // 다른 선수가 진행 중이면 버리지 않고 이어하기 목록에 보관합니다.
   const extra=second.career;
   if(extra&&extra.id!==next.career?.id&&!FP.careerComplete(extra)&&!next.savedCareers.some(x=>x.career.id===extra.id))next.savedCareers.push({id:extra.id||'imported-legacy',career:extra});
@@ -78,13 +81,17 @@ FP.accountRequest = async function (route, method = 'GET', body) {
 };
 
 FP.useAccount = function (result) {
+  FP.account.generation++;
   if (FP.account.username !== result.username) {
     FP.accountSaveStatus = '저장된 기록을 불러왔어요.';
     FP.accountSaveState = 'idle';
   }
   FP.account.username = result.username;
   FP.account.revision = result.revision ?? 0;
-  FP.data = result.username ? FP.normalize(result.state) : FP.load(localStorage);
+  FP.account.restorePending=false;
+  const issues=[];
+  FP.data = result.username ? FP.normalize(result.state,issues) : FP.load(localStorage);
+  FP.accountRecovery=issues.length?{raw:JSON.stringify(result.state),issues}:null;
 };
 
 FP.restoreAccount = async function () {
@@ -104,21 +111,30 @@ FP.restoreAccount = async function () {
 };
 
 FP.saveAccountState = async function (next) {
-  if (FP.account.busy) return false;
+  if (FP.account.busy || FP.account.restorePending) return false;
+  const {username,revision,generation}=FP.account;
   FP.account.busy = true;
   FP.accountSaveStatus = '계정에 저장 중…';
   FP.accountSaveState = 'saving';
   const status=typeof document==='undefined'?null:document.querySelector('[data-save-status]');
   if(status){status.textContent=FP.accountSaveStatus;status.dataset.saveState=FP.accountSaveState;}
   try {
+    if(FP.accountRecovery){
+      try{localStorage.setItem('fanplay-account-recovery-'+username,FP.accountRecovery.raw);}
+      catch{throw Object.assign(new Error('복구 전 온라인 원본을 기기에 보관할 수 없어 저장을 멈췄어요.'),{status:507});}
+    }
     const saved = await FP.accountRequest('state', 'PUT', {
-      username: FP.account.username, revision: FP.account.revision, state: next
+      username, revision, state: next
     });
+    if(FP.account.username!==username||FP.account.generation!==generation)return false;
     FP.useAccount(saved);
+    FP.pendingAccountSave=null;
     FP.accountSaveStatus = '계정에 저장 완료 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
     FP.accountSaveState = 'saved';
     return true;
   } catch (error) {
+    if(FP.account.username!==username||FP.account.generation!==generation)return false;
+    FP.pendingAccountSave={username,revision,state:next};
     FP.accountSaveStatus = '저장 실패 · 마지막으로 저장한 기록을 유지해요.';
     FP.accountSaveState = 'error';
     FP.toast(error.status ? error.message : '서버에 저장하지 못했습니다. 연결을 확인하고 새로고침해 주세요.');
@@ -129,6 +145,28 @@ FP.saveAccountState = async function (next) {
     if(currentStatus){currentStatus.textContent=FP.accountSaveStatus;currentStatus.dataset.saveState=FP.accountSaveState;}
   }
 };
+
+FP.downloadRecordFile = (text,name) => {
+  const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+  const link=document.createElement('a');
+  link.href=url;link.download=name;link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+
+FP.parseRecordBackup = text => {
+  const raw=JSON.parse(text);
+  if(raw?.format!==undefined&&(raw.format!=='fanplay-backup'||raw.version!==1))throw new Error('지원하는 FANPLAY 백업 버전을 선택해 주세요.');
+  const state=raw?.format==='fanplay-backup'&&raw.version===1?raw.state:raw;
+  if(!state||typeof state!=='object'||Array.isArray(state)||
+     (state.schemaVersion!==undefined&&![1,2].includes(state.schemaVersion))||
+     !Array.isArray(state.tickets)||!Array.isArray(state.posts))throw new Error('지원하는 FANPLAY 기록 파일을 선택해 주세요.');
+  const issues=[];
+  return {state:FP.normalize(state,issues),issues};
+};
+
+FP.recordBackupTools = () => `<section class="panel account-panel" aria-label="기록 파일">
+   <h2>기록 파일</h2><div class="cloud-tools-actions"><button type="button" class="btn secondary" data-action="records-download">기록 파일 내려받기</button>
+   <label>기록 파일 가져오기<input type="file" data-record-backup accept=".json,application/json"></label></div></section>`;
 
 FP.accountPanel = function () {
   const { available, checking, username } = FP.account;

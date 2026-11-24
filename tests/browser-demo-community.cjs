@@ -23,6 +23,9 @@ const assert=require('node:assert/strict'),path=require('node:path');
           const record=records.get(args.p_player_id);
           const identity=args.p_browser_key?args.p_player_id+':'+args.p_browser_key:null;
           switch(name){
+            case 'fanplay_demo_ticket_feed_v2':
+            case 'fanplay_demo_ticket_write_v2':
+              return route.fulfill({status:404,json:{code:'PGRST202'}});
             case 'fanplay_demo_status': return ok({ready:true,version:1});
             case 'fanplay_demo_resume':
               return resumeAvailable?ok(record||null):route.fulfill({status:404,json:{code:'PGRST202'}});
@@ -109,9 +112,12 @@ const assert=require('node:assert/strict'),path=require('node:path');
       await a.getByRole('heading',{name:'선택한 티켓 게시하기'}).waitFor();
       assert.equal(await a.evaluate(()=>FP.data.tickets.length),0);
       assert.equal(await a.locator('.bottomnav a[aria-current="page"]').getAttribute('href'),'#profile');
-      a.once('dialog',dialog=>dialog.accept('시연 티켓'));
       await a.locator('[data-action="resume-share"]').click();
+      assert.equal(await a.locator('#public-share-form [name="includeNote"]').isChecked(),false);
+      await a.locator('#public-share-form [name="message"]').fill('시연 티켓');
+      await a.locator('#public-share-form button[type="submit"]').click();
       await a.getByText('시연 티켓',{exact:true}).waitFor();
+      assert.equal(await a.getByText('아홉 번의 이닝, 오래 남을 한순간.',{exact:true}).count(),0);
       assert.equal(await a.locator('[data-action="edit-post"]').count(),1);
       await a.locator('.bottomnav a[href="#profile"]').click();
       await a.locator('.profile-card').getByText('LG 트윈스',{exact:false}).waitFor();
@@ -140,7 +146,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
         await b.locator('[data-action="community-sort"][data-value="'+sort+'"]').click();
         await b.getByText('1위',{exact:true}).waitFor();
       }
-      await b.locator('.community-comments summary').click();
+      if(!await b.locator('.community-comments').evaluate(details=>details.open))await b.locator('.community-comments summary').click();
       b.once('dialog',d=>d.accept());
       await b.getByRole('button',{name:'내 댓글 삭제'}).click();
       await b.getByText('아직 이 목록에 티켓이 없어요.').waitFor();

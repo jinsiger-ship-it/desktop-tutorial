@@ -39,7 +39,9 @@
     body:JSON.stringify(body),signal:AbortSignal.timeout(15000),credentials:'omit'
    });
   }catch{throw new Error('온라인 저장소에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.');}
-  const result=await response.json().catch(()=>null);
+  let result;
+  try{result=await response.json();}
+  catch{if(response.ok)throw new Error('온라인 저장소 응답을 읽지 못했어요. 다시 시도해 주세요.');}
   if(!response.ok){
    const setup=result?.code==='PGRST202'||result?.code==='42883';
    throw Object.assign(new Error(setup?'온라인 저장소 설정이 아직 완료되지 않았어요. 지금은 이 브라우저에 저장할 수 있어요.':result?.message||'온라인 기록을 처리하지 못했어요.'),{status:response.status,code:result?.code});
@@ -84,24 +86,41 @@
  };
  FP.restoreAccount = async () => {
   if(!['http:','https:'].includes(location.protocol))return false;
+  const id=FP.activeDemoId();
+  const generation=FP.account.generation;
+  if(validId(id))FP.account.restorePending=true;
   FP.account.checking=true;
   try{
    const status=await FP.cloudRpc('fanplay_demo_status');
    if(status?.ready!==true||status.version!==1)throw new Error('온라인 저장소 버전을 확인해 주세요.');
    FP.account.available=true;FP.cloudError='';
-   let id;try{id=localStorage.getItem(activeKey);}catch{}
-   if(validId(id))FP.useAccount(validateResult(await FP.cloudRpc('fanplay_demo_open',{p_player_id:id})));
+   if(validId(id)){
+    const result=FP.communityMode
+     ? await FP.cloudRpc('fanplay_demo_resume',{p_player_id:id}).catch(error=>{
+       if(!['PGRST202','42883'].includes(error.code))throw error;
+       return FP.cloudRpc('fanplay_demo_open',{p_player_id:id});
+      })
+     : await FP.cloudRpc('fanplay_demo_open',{p_player_id:id});
+    if(FP.account.generation!==generation||FP.activeDemoId()!==id)return false;
+    if(!result)throw new Error('이전에 접속한 아이디의 기록을 찾지 못했어요.');
+    FP.useAccount(validateResult(result));
+   }
    return true;
   }catch(error){FP.cloudError=error.message;return false;}
   finally{FP.account.checking=false;}
  };
+ FP.continueAsGuest=()=>{
+  try{localStorage.removeItem(activeKey);}catch{FP.toast('이 브라우저에서 로그인 상태를 바꿀 수 없어요.');return false;}
+  FP.useAccount({username:null});
+  return true;
+ };
  FP.cloudAccountTools = () => `<section class="panel account-panel" aria-label="온라인 저장"><div class="storage-mode"><strong>온라인 저장</strong><span>아이디 <b>${FP.esc(FP.account.username)}</b></span></div><p class="save-status" data-save-status data-save-state="${FP.accountSaveState || 'idle'}" role="status">${FP.esc(FP.accountSaveStatus)}</p>
    ${FP.guestImportPanel()}<details class="cloud-tools"><summary>저장 도구</summary><div class="cloud-tools-actions"><button class="btn secondary" data-action="cloud-download">현재 기록 내려받기</button><button class="btn secondary" data-action="cloud-refresh">온라인 기록 다시 불러오기</button>
+   ${FP.pendingAccountSave?.username===FP.account.username?'<button type="button" class="btn secondary" data-action="records-download-pending">저장에 실패한 변경 사본 내려받기</button>':''}
    <button type="button" class="text-link" data-action="guest-review">이 기기 기록 가져오기 다시 확인</button><button type="button" class="text-link" data-action="import-backup">가져오기 전 사본 내려받기</button></div></details>
    <form data-account-action="logout"><button class="btn secondary" type="submit">로그아웃</button></form>
    <details><summary>기록과 게시물 이용 안내</summary><p>같은 아이디를 아는 사람과 저장 기록을 공유해요. 게시글과 댓글은 처음 작성한 브라우저에서 관리할 수 있어요.</p></details></section>`;
  FP.downloadDemoState=()=>{
-  const url=URL.createObjectURL(new Blob([JSON.stringify(FP.data,null,2)],{type:'application/json'}));
-  const link=document.createElement('a');link.href=url;link.download='fanplay-'+(FP.account.username||'guest')+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  FP.downloadRecordFile(JSON.stringify(FP.data,null,2),'fanplay-'+(FP.account.username||'guest')+'.json');
  };
 })();
