@@ -1,5 +1,5 @@
 -- 운영자용. 먼저 결과를 검토하고 공개에 동의한 기존 게시물의 아이디만 입력하세요.
--- legacy 게시물은 작성 시각과 회원 계정 소유권을 추측하지 않습니다.
+-- 기존 게시물은 작성 시각과 브라우저 소유권을 추측하지 않습니다.
 select d.player_id, p->>'id' as post_id, p->>'nickname' as nickname,
   p->>'text' as message, p->'ticket'->>'mode' as ticket_type,
   coalesce(p->'ticket'->>'photo','') <> '' as has_photo
@@ -21,7 +21,7 @@ with approved as (
   ) p
   where p->>'id'=a.post_id
 )
-insert into fanplay_private.ticket_posts(legacy_player_id,legacy_post_id,nickname,ticket,message,created_at)
+insert into fanplay_private.demo_ticket_posts(legacy_player_id,legacy_post_id,nickname,ticket,message,created_at)
 select player_id,post_id,left(coalesce(nullif(btrim(p->>'nickname'),''),'야구팬'),24),
   (
     select jsonb_object_agg(key,value) from jsonb_each(p->'ticket')

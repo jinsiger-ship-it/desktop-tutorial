@@ -29,7 +29,6 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   res.setHeader('Content-Type',mime[path.extname(file)]);
   // Keep this compatibility check pointed at the previous shared-ID screen.
   if(path.extname(file)==='.html')return res.end(fs.readFileSync(file,'utf8')
-    .replace(/<script src="js\/members\.js[^"]*"><\/script>/,'')
     .replace(/<script src="js\/community\.js[^"]*"><\/script>/,''));
   fs.createReadStream(file).on('error',()=>res.destroy()).pipe(res);
  }).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
