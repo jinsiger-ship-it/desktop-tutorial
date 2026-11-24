@@ -184,17 +184,22 @@ header .brand .brand-mark {
   justify-content: center;
   min-height: 44px;
   padding: 6px 10px;
-  border: 1px solid #bfd1c4;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, white);
   border-radius: 9px;
-  background: #edf3ee;
-  color: #183d32;
+  background: color-mix(in srgb, var(--accent) 14%, white);
+  color: color-mix(in srgb, var(--accent) 82%, #162027);
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
 }
 .header-account[hidden] { display: none; }
-.header-account:hover { background: #dfece2; }
-.header-account[aria-current="page"] { background: #183d32; border-color: #183d32; color: #fff; }
+.header-account:hover { background: color-mix(in srgb, var(--accent) 20%, white); }
+.header-account:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.header-account[aria-current="page"] {
+  background: color-mix(in srgb, var(--accent) 94%, #14231d);
+  border-color: var(--accent);
+  color: #fff;
+}
 @media (max-width: 360px) {
   header:has(.header-account:not([hidden])) {
     gap: 6px;
