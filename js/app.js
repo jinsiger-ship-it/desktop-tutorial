@@ -1026,11 +1026,19 @@ app.addEventListener('click',e=>{
  if(link.hasAttribute('data-login-cancel')){loginId='';loginReturn='profile';pendingShare=null;return;}
  e.preventDefault();openLogin(link.dataset.loginReturn);
 });
-window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);app.querySelector?.('.login-screen h1')?.focus();if(location.hash==='#ranking')void loadRankings();});
-window.addEventListener('storage',event=>{
- if(event.key!==FP.key||FP.account.username||FP.account.restorePending||['#create','#game'].includes(location.hash))return;
+function refreshDeviceOutsideEdits(){
+ if(FP.account.username||FP.account.restorePending||['#create','#game'].includes(location.hash))return false;
  FP.data=FP.load(localStorage);
- render();
+ return true;
+}
+window.addEventListener('hashchange',()=>{
+ refreshDeviceOutsideEdits();
+ render();window.scrollTo(0,0);
+ app.querySelector?.('.login-screen h1')?.focus();
+ if(location.hash==='#ranking')void loadRankings();
+});
+window.addEventListener('storage',event=>{
+ if(event.key===FP.key&&refreshDeviceOutsideEdits())render();
 });
 app.addEventListener('change',async event=>{
  const input=event.target;
