@@ -1039,8 +1039,7 @@ window.addEventListener('hashchange',()=>{
  app.querySelector?.('.login-screen h1')?.focus();
  if(location.hash==='#ranking')void loadRankings();
 });
-window.addEventListener('pageshow',event=>{
- if(!event.persisted)return;
+function resetGuestVisit(){
  FP.guestData=FP.defaults();
  guestTicketDraft=null;
  guestMatches=[];
@@ -1052,7 +1051,9 @@ window.addEventListener('pageshow',event=>{
  appliedMatch=null;
  draft=null;formStage=1;careerBroadcast=null;
  render();
-});
+}
+window.addEventListener('pageshow',event=>{if(event.persisted)resetGuestVisit();});
+window.addEventListener('fanplay-records-reset',resetGuestVisit);
 app.addEventListener('change',async event=>{
  const input=event.target;
  if(!FP.account.username||!input.matches('[data-record-backup]'))return;

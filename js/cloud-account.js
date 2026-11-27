@@ -7,6 +7,30 @@
  FP.cloudError='';
  const activeKey='fanplay-demo-active-id-v1';
  const previousKey='fanplay-demo-last-id-v1';
+ const resetMarker='fanplay-record-reset-applied';
+ const resetId='fanplay-demo-20261127';
+ const oldRecordKeys=new Set([
+  activeKey,previousKey,FP.key,FP.key+'-recovery','fanplay-prototype-v1','diamond-v1','fanplay-archive-v1.1',
+  'fanplay-match-results-2026',FP.matchResultsKey
+ ]);
+ const oldRecordPrefixes=[
+  'fanplay-ticket-draft-v1:','fanplay-before-import-','fanplay-imported-',
+  'fanplay-account-recovery-','fanplay-community-browser-v1:','fanplay-post-request:'
+ ];
+ function clearResetRecords(serverReset){
+  if(serverReset!==resetId||localStorage.getItem(resetMarker)===serverReset)return false;
+  for(const storage of [localStorage,sessionStorage]){
+   for(let i=storage.length-1;i>=0;i--){
+    const key=storage.key(i);
+    if(key&&(oldRecordKeys.has(key)||oldRecordPrefixes.some(prefix=>key.startsWith(prefix))))storage.removeItem(key);
+   }
+  }
+  localStorage.setItem(resetMarker,serverReset);
+  return true;
+ }
+ window.addEventListener('storage',event=>{
+  if(event.key===resetMarker&&event.newValue===resetId&&!FP.account.checking)location.reload();
+ });
  FP.activeDemoId=()=>{try{return localStorage.getItem(activeKey)||'';}catch{return '';}};
  FP.lastDemoId=()=>{try{return FP.activeDemoId()||localStorage.getItem(previousKey)||'';}catch{return '';}};
  FP.communityIdentity=(create=false)=>{
@@ -86,14 +110,20 @@
  };
  FP.restoreAccount = async () => {
   if(!['http:','https:'].includes(location.protocol))return false;
-  const id=FP.activeDemoId();
   const generation=FP.account.generation;
-  if(validId(id))FP.account.restorePending=true;
+  if(validId(FP.activeDemoId()))FP.account.restorePending=true;
   FP.account.checking=true;
   try{
    const status=await FP.cloudRpc('fanplay_demo_status');
    if(status?.ready!==true||status.version!==1)throw new Error('온라인 저장소 버전을 확인해 주세요.');
    FP.account.available=true;FP.cloudError='';
+   if(clearResetRecords(status.recordReset)){
+    FP.useAccount({username:null});
+    window.dispatchEvent(new Event('fanplay-records-reset'));
+    FP.toast('이전에 남은 FANPLAY 기록을 초기화했어요.');
+    return true;
+   }
+   const id=FP.activeDemoId();
    if(validId(id)){
     const result=FP.communityMode
      ? await FP.cloudRpc('fanplay_demo_resume',{p_player_id:id}).catch(error=>{
@@ -104,7 +134,7 @@
     if(FP.account.generation!==generation||FP.activeDemoId()!==id)return false;
     if(!result)throw new Error('이전에 접속한 아이디의 기록을 찾지 못했어요.');
     FP.useAccount(validateResult(result));
-   }
+   }else FP.account.restorePending=false;
    return true;
   }catch(error){FP.cloudError=error.message;return false;}
   finally{FP.account.checking=false;}
