@@ -9,6 +9,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   const context=await browser.newContext({viewport:{width:390,height:800}});
   const errors=[];
   let offline=false;
+  let serverReset, resumeCalls=0;
   let record={username:'browser_recovery',state:{profile:{team:'LG'}},revision:0};
   const postId='08bb0f21-9c20-4dcf-b4a5-4f330ca91ad0';
   const ticket={id:'test-v2',date:'2026-11-25',home:'가상 홈',away:'가상 원정',stadium:'가상 구장',hs:0,as:0};
@@ -24,9 +25,11 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
     const args=route.request().postDataJSON();
     const ok=json=>route.fulfill({json});
     switch(name){
-      case 'fanplay_demo_status':return ok({ready:true,version:1});
+      case 'fanplay_demo_status':return ok({ready:true,version:1,recordReset:serverReset});
       case 'fanplay_demo_open':
-      case 'fanplay_demo_resume':return offline?route.abort():ok(args.p_player_id===record.username?record:null);
+      case 'fanplay_demo_resume':
+        resumeCalls++;
+        return offline?route.abort():ok(args.p_player_id===record.username?record:null);
       case 'fanplay_demo_save':
         record={...record,state:args.p_state,revision:record.revision+1};
         return ok(record);
@@ -128,7 +131,25 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
     await a.setViewportSize({width,height:800});
     assert(await a.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   }
+  await a.evaluate(()=>{
+   for(const key of ['fanplay-web-v2','diamond-v1','fanplay-match-results-v2','fanplay-ticket-draft-v1:device','fanplay-community-browser-v1:browser_recovery'])localStorage.setItem(key,'old');
+   localStorage.setItem('unrelated-app','keep');
+   sessionStorage.setItem('fanplay-post-request:old','old');
+   sessionStorage.setItem('unrelated-session','keep');
+  });
+  const beforeReset=resumeCalls;
+  serverReset='fanplay-demo-20261127';
+  await a.reload();
+  await a.waitForFunction(()=>!FP.account.checking&&localStorage.getItem('fanplay-record-reset-applied'));
+  assert.equal(resumeCalls,beforeReset);
+  assert.deepEqual(await a.evaluate(()=>({
+   local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort(),username:FP.account.username
+  })),{local:['fanplay-record-reset-applied','unrelated-app'],session:['unrelated-session'],username:null});
+  await a.evaluate(()=>localStorage.setItem('fanplay-ticket-draft-v1:id:new-id','created-after-reset'));
+  await a.reload();
+  await a.waitForFunction(()=>!FP.account.checking);
+  assert.equal(await a.evaluate(()=>localStorage.getItem('fanplay-ticket-draft-v1:id:new-id')),'created-after-reset');
   assert.deepEqual(errors,[]);
-  console.log('PASS one-visit tickets, drafts, and KBO file isolation; legacy account import, backup, reconnect, comments and rankings');
+  console.log('PASS guest isolation, backup, community, rankings, and one-time device reset');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});
