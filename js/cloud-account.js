@@ -44,7 +44,7 @@
   catch{if(response.ok)throw new Error('온라인 저장소 응답을 읽지 못했어요. 다시 시도해 주세요.');}
   if(!response.ok){
    const setup=result?.code==='PGRST202'||result?.code==='42883';
-   throw Object.assign(new Error(setup?'온라인 저장소 설정이 아직 완료되지 않았어요. 지금은 이 브라우저에 저장할 수 있어요.':result?.message||'온라인 기록을 처리하지 못했어요.'),{status:response.status,code:result?.code});
+   throw Object.assign(new Error(setup?'온라인 저장소 설정이 아직 완료되지 않았어요. 비회원으로 이번 방문만 플레이할 수 있어요.':result?.message||'온라인 기록을 처리하지 못했어요.'),{status:response.status,code:result?.code});
   }
   return result;
  };

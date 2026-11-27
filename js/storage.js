@@ -1,4 +1,4 @@
-/* 사본을 먼저 저장하고 성공했을 때만 메모리를 교체합니다. 실패 시 어떤 변경도 반영하지 않습니다. */
+/* 로그인한 기록은 계정에 저장하고, 비회원 기록은 현재 페이지에서만 보관합니다. */
 FP.key = 'fanplay-web-v2';
 FP.copy = value => JSON.parse(JSON.stringify(value));
 FP.defaults = () => ({schemaVersion:2,tickets:[],posts:[],career:null,careerDraft:null,careerHistory:[],savedCareers:[],savedDrafts:[],profile:{nickname:'야구팬',team:'neutral',featuredTicketId:null,selectedTitleId:null},inventory:{itemIds:[],titleIds:[]}});
@@ -96,112 +96,17 @@ FP.readDevice = storage => {
   return {raw,migrated,issues:[],state:FP.defaults(),unreadable:true};
  }
 };
-FP.load = storage => {
- const snapshot=FP.readDevice(storage);
- FP.deviceRecovery=snapshot.unreadable||snapshot.issues.length?snapshot:null;
- FP.loadWarning=Boolean(FP.deviceRecovery);
- FP.migrated=snapshot.migrated;
- return snapshot.state;
-};
-
-const sameRecord=(first,second)=>JSON.stringify(first)===JSON.stringify(second);
-function deviceChange(before,proposed,current) {
- const field=(oldValue,newValue,latest)=>{
-  if(sameRecord(oldValue,newValue))return latest;
-  if(sameRecord(oldValue,latest)||sameRecord(newValue,latest))return newValue;
-  throw new Error('conflict');
- };
- const byId=(oldList,newList,latestList)=>{
-  oldList??=[];newList??=[];latestList??=[];
-  const old=new Map(oldList.map(item=>[item.id,item]));
-  const wanted=new Map(newList.map(item=>[item.id,item]));
-  const latest=new Map(latestList.map(item=>[item.id,item]));
-  for(const id of new Set([...old.keys(),...wanted.keys()])){
-   const value=field(old.get(id),wanted.get(id),latest.get(id));
-   if(value===undefined)latest.delete(id);else latest.set(id,value);
-  }
-  const added=newList.filter(item=>!old.has(item.id)&&!latestList.some(entry=>entry.id===item.id)).map(item=>item.id);
-  return [...new Set([...added,...latest.keys()])].map(id=>latest.get(id));
- };
- const inventory=(oldList,newList,latestList)=>{
-  const removed=new Set(oldList.filter(id=>!newList.includes(id)));
-  return [...new Set([...latestList.filter(id=>!removed.has(id)),...newList.filter(id=>!oldList.includes(id))])];
- };
- const merged={...current};
- for(const key of ['tickets','posts','careerHistory','savedCareers','savedDrafts'])merged[key]=byId(before[key],proposed[key],current[key]);
- for(const key of ['career','careerDraft'])merged[key]=field(before[key],proposed[key],current[key]);
- // Saving a different active player and selecting a new draft are mutually exclusive.
- if(merged.career&&merged.careerDraft)throw new Error('conflict');
- merged.profile=Object.fromEntries(Object.keys(current.profile).map(key=>[key,field(before.profile[key],proposed.profile[key],current.profile[key])]));
- if(!merged.tickets.some(t=>t.id===merged.profile.featuredTicketId))merged.profile.featuredTicketId=null;
- merged.inventory=Object.fromEntries(Object.keys(current.inventory).map(key=>[key,inventory(before.inventory[key],proposed.inventory[key],current.inventory[key])]));
- return merged;
-}
-
-FP.withDeviceWrite = task => {
- if(typeof navigator==='undefined')return task();
- if(navigator.locks?.request)return navigator.locks.request(FP.key+'-write',task);
- if(typeof indexedDB==='undefined')return Promise.reject(new Error('lock unavailable'));
- return new Promise((resolve,reject)=>{
-  const open=indexedDB.open(FP.key+'-coordination',1);
-  open.onupgradeneeded=()=>open.result.createObjectStore('writes');
-  open.onblocked=open.onerror=()=>reject(new Error('lock unavailable'));
-  open.onsuccess=()=>{
-   const db=open.result;
-   const transaction=db.transaction('writes','readwrite');
-   const gate=transaction.objectStore('writes').get('device');
-   let result;
-   gate.onsuccess=()=>{try{result=task();}catch(error){reject(error);}};
-   transaction.oncomplete=()=>{db.close();resolve(result);};
-   transaction.onabort=transaction.onerror=()=>{db.close();reject(new Error('lock unavailable'));};
-  };
- });
-};
-FP.replaceUnreadableDevice = async state => {
+FP.transact = change => {
+ if(FP.account?.restorePending){FP.toast('온라인 기록을 다시 연결하거나 비회원 사용을 선택해 주세요.');return false;}
  try{
-  return await FP.withDeviceWrite(()=>{
-   const latest=FP.readDevice(localStorage);
-   if(!latest.unreadable||latest.raw===null||latest.raw!==FP.deviceRecovery?.raw)throw new Error('changed');
-   localStorage.setItem(FP.key+'-recovery',latest.raw);
-   localStorage.setItem(FP.key,JSON.stringify(state));
-   FP.data=state;
-   FP.deviceRecovery=null;
-   return true;
-  });
- }catch{
-  FP.toast('원본을 안전하게 보관하지 못했거나 다른 탭에서 변경했어요. 기존 기록을 유지합니다.');
+  const next=FP.copy(FP.data);
+  change(next);
+  if(FP.account?.username)return FP.saveAccountState(next);
+  FP.guestData=next;
+  FP.data=next;
+  return true;
+ }catch(error){
+  FP.toast(error.message==='conflict'?'기록이 변경됐어요. 최신 내용을 확인해 주세요.':'변경을 반영하지 못했어요. 이전 기록을 유지합니다.');
   return false;
  }
-};
-FP.transact = change => {
- const before=FP.data, next=FP.copy(before), username=FP.account?.username;
- const failure=error=>{
-  const message=error.message==='conflict'?'다른 탭에서 같은 기록을 바꿨어요. 최신 기록을 확인한 뒤 다시 저장해 주세요.':
-   error.message==='restore'?'온라인 기록을 다시 연결하거나 비회원 사용을 선택해 주세요.':
-   error.message==='recovery'?'기존 기록을 복구하거나 원본을 내려받은 뒤 새 기록 시작을 선택해 주세요.':
-   '저장하지 못했습니다. 기존 상태를 유지합니다. 저장 공간과 브라우저 설정을 확인해 주세요.';
-  if(error.message==='conflict'){FP.deviceConflict=true;FP.pendingDeviceSave=next;}
-  FP.toast(message);
-  return false;
- };
- try {
-  if(FP.account?.restorePending)throw new Error('restore');
-  change(next);
-  if(username)return FP.saveAccountState(next);
-  const write=FP.withDeviceWrite(()=>{
-   if(FP.account?.username||FP.account?.restorePending)throw new Error('restore');
-   const latest=FP.readDevice(localStorage);
-   if(latest.unreadable)throw new Error('recovery');
-   const merged=deviceChange(before,next,latest.state);
-   if(latest.issues.length&&latest.raw!==null&&localStorage.getItem(FP.key+'-recovery')===null)
-    localStorage.setItem(FP.key+'-recovery',latest.raw);
-   localStorage.setItem(FP.key,JSON.stringify(merged));
-   FP.deviceConflict=false;
-   FP.pendingDeviceSave=null;
-   FP.deviceRecovery=null;
-   FP.data=merged;
-   return true;
-  });
-  return write?.catch?write.catch(failure):write;
- }catch(error){return failure(error);}
 };

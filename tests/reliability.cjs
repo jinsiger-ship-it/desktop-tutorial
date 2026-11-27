@@ -10,7 +10,7 @@ function createTab(){
   for(const script of scripts)vm.runInContext(fs.readFileSync(path.join(__dirname,'../js',script+'.js'),'utf8'),context);
   const {FP}=context;
   FP.toast=()=>{};
-  FP.data=FP.load(localStorage);
+  FP.data=FP.guestData=FP.defaults();
   return FP;
 }
 const first=createTab(),second=createTab();
@@ -18,25 +18,22 @@ const firstTicket={...first.sample,id:'first'};
 const secondTicket={...first.sample,id:'second'};
 assert(first.saveTicket(firstTicket));
 assert(second.saveTicket(secondTicket));
-assert.deepEqual(first.load(localStorage).tickets.map(t=>t.id).sort().join(','),'first,second');
-const left=createTab(),right=createTab();
-assert(left.saveTicket({...firstTicket,note:'최신 편집'}));
-assert.equal(right.deleteTicket('first'),false);
-assert.equal(left.load(localStorage).tickets.find(t=>t.id==='first').note,'최신 편집');
-const stale=createTab(),newer=createTab();
-assert(newer.deleteTicket('first'));
-assert.equal(stale.saveTicket({...firstTicket,note:'이전 화면 편집'}),false);
-assert(!newer.load(localStorage).tickets.some(t=>t.id==='first'));
+assert.equal(first.data.tickets.map(t=>t.id).join(','),'first');
+assert.equal(second.data.tickets.map(t=>t.id).join(','),'second');
+assert.equal(data.size,0);
+assert.equal(createTab().data.tickets.length,0);
 
 const damaged=JSON.stringify({tickets:[firstTicket],career:{stats:[30,30,30],step:1,log:[null]}});
 data.set(first.key,damaged);
-const repaired=createTab();
-assert(repaired.saveTicket(secondTicket));
-assert.equal(repaired.data.tickets.length,2);
-assert.equal(data.get(first.key+'-recovery'),damaged);
+const legacy=createTab();
+assert(legacy.saveTicket(secondTicket));
+assert.equal(legacy.data.tickets[0].id,'second');
+assert.equal(legacy.readDevice(localStorage).state.tickets[0].id,'first');
+assert.equal(data.get(first.key),damaged);
 data.set(first.key,'{unreadable');
 const unreadable=createTab();
-assert.equal(unreadable.saveTicket(secondTicket),false);
+assert(unreadable.saveTicket(secondTicket));
+assert(unreadable.readDevice(localStorage).unreadable);
 assert.equal(data.get(first.key),'{unreadable');
 const oldBackup=JSON.stringify({tickets:[firstTicket],posts:[]});
 assert.equal(unreadable.parseRecordBackup(oldBackup).state.tickets[0].id,'first');
@@ -84,4 +81,4 @@ for(const position of ['투수','타자']){
   assert(current.abilities[5]>startingAbilities[5]);
   assert.equal(JSON.stringify(current),JSON.stringify(good.restoreCareer(current)));
 }
-console.log('PASS local recovery, concurrent non-overlapping and conflicting writes, backup round trip, cumulative KBO files, old and new game rules');
+console.log('PASS independent one-visit records, legacy preservation, backup parsing, cumulative KBO files, old and new game rules');

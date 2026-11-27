@@ -1,10 +1,8 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const values=new Map();let fail=false;
-const localStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>{if(fail)throw Error('quota');values.set(k,v);},removeItem:k=>values.delete(k)};
-const ctx=vm.createContext({localStorage,console,location:{protocol:'file:'}});
+const ctx=vm.createContext({console,location:{protocol:'file:'}});
 for(const f of ['game-data','storage','game','career-story','tickets','account'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+f+'.js','utf8'),ctx);
 const F=ctx.FP;F.toast=()=>{};
-const reset=()=>{values.clear();F.data=F.defaults();};
+const reset=()=>{F.data=F.guestData=F.defaults();};
 const start=(position,seed=47)=>F.restoreCareer({rules:7,id:'story-'+seed,seed,name:'테스트',position,moves:[]});
 const tick=(c,move)=>{const next=F.restoreCareer({...c,moves:[...c.moves,move]});assert(next,'valid move '+move+' '+c.pending?.id);return next;};
 const finish=(position,seed,select)=>{
@@ -42,7 +40,7 @@ console.log('PASS promised role returns next season, invalid moves blocked');
 reset();F.transact(d=>{d.career=start('타자');});
 assert(F.advanceAutoCareer(F.data.career.id,0,-1,true));assert(F.data.career.pending);
 assert.equal(F.advanceAutoCareer(F.data.career.id,0,0),false);
-const before=JSON.stringify(F.data);fail=true;assert.equal(F.advanceAutoCareer(F.data.career.id,1,0),false);fail=false;assert.equal(JSON.stringify(F.data),before);
+const before=JSON.stringify(F.data),accountSave=F.saveAccountState;F.account.username='fixture';F.saveAccountState=()=>false;assert.equal(F.advanceAutoCareer(F.data.career.id,1,0),false);F.account.username=null;F.saveAccountState=accountSave;assert.equal(JSON.stringify(F.data),before);
 assert.equal(F.data.tickets.length,0);
 c=finish('타자',18,career=>career.pending.id==='retirement'?1:0);
 F.transact(d=>{d.career=c;F.grantStoryRewards(d,c);F.grantStoryRewards(d,c);});
