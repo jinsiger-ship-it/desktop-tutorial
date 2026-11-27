@@ -81,24 +81,17 @@
    try{localStorage.removeItem(activeKey);}catch{}
    return {username:null};
   }
-  if(route==='resume'){
-   const id=normalizeId(body.username);
-   try{
-    const result=await FP.cloudRpc('fanplay_demo_resume',{p_player_id:id});
-    FP.cloudResumeUnavailable=false;
-    return result===null?null:rememberAccount(validateResult(result));
-   }catch(error){
-    if(!['PGRST202','42883'].includes(error.code))throw error;
-    FP.cloudResumeUnavailable=true;
-    return null;
-   }
-  }
   if(route==='login'){
    const id=normalizeId(body.username);
-   const team=FP.communityMode ? FP.teams.find(([key])=>key===body.team)?.[0] : null;
-   const result=validateResult(team
-    ? await FP.cloudRpc('fanplay_demo_join',{p_player_id:id,p_team:team})
-    : await FP.cloudRpc('fanplay_demo_open',{p_player_id:id}));
+   const result=await FP.cloudRpc('fanplay_demo_resume',{p_player_id:id});
+   if(result===null)throw Object.assign(new Error('가입한 아이디를 찾지 못했어요. 새 아이디라면 회원가입을 선택해 주세요.'),{status:404});
+   return rememberAccount(validateResult(result));
+  }
+  if(route==='register'){
+   const id=normalizeId(body.username);
+   const team=FP.teams.find(([key])=>key===body.team)?.[0];
+   if(!team)throw Object.assign(new Error('응원팀을 선택해 주세요.'),{status:400});
+   const result=validateResult(await FP.cloudRpc('fanplay_demo_join',{p_player_id:id,p_team:team}));
    return rememberAccount(result);
   }
   if(route==='state'){
@@ -125,12 +118,7 @@
    }
    const id=FP.activeDemoId();
    if(validId(id)){
-    const result=FP.communityMode
-     ? await FP.cloudRpc('fanplay_demo_resume',{p_player_id:id}).catch(error=>{
-       if(!['PGRST202','42883'].includes(error.code))throw error;
-       return FP.cloudRpc('fanplay_demo_open',{p_player_id:id});
-      })
-     : await FP.cloudRpc('fanplay_demo_open',{p_player_id:id});
+    const result=await FP.cloudRpc('fanplay_demo_resume',{p_player_id:id});
     if(FP.account.generation!==generation||FP.activeDemoId()!==id)return false;
     if(!result)throw new Error('이전에 접속한 아이디의 기록을 찾지 못했어요.');
     FP.useAccount(validateResult(result));

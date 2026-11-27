@@ -30,9 +30,9 @@ const assert=require('node:assert/strict'),path=require('node:path');
             case 'fanplay_demo_resume':
               return resumeAvailable?ok(record||null):route.fulfill({status:404,json:{code:'PGRST202'}});
             case 'fanplay_demo_join':
-              if(!record)records.set(args.p_player_id,{username:args.p_player_id,state:{profile:{team:args.p_team}},revision:0});
+              if(record)return route.fulfill({status:409,json:{code:'PT409',message:'이미 가입한 아이디예요.'}});
+              records.set(args.p_player_id,{username:args.p_player_id,state:{profile:{team:args.p_team}},revision:0});
               return ok(records.get(args.p_player_id));
-            case 'fanplay_demo_open': return ok(record);
             case 'fanplay_demo_save':
               if(record.revision!==args.p_revision)return route.fulfill({status:409,json:{message:'기록 충돌'}});
               Object.assign(record,{state:args.p_state,revision:record.revision+1});
@@ -73,7 +73,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
         return page;
       }
       async function enter(page,id,team){
-        const form=page.locator('form[data-account-action="resume"]');
+        const form=page.locator('form[data-account-action="login"]');
         await form.waitFor();
         assert.equal(await page.locator('input[type="email"], input[type="password"]').count(),0);
         await page.locator('.bottomnav').waitFor({state:'hidden'});
@@ -81,13 +81,17 @@ const assert=require('node:assert/strict'),path=require('node:path');
         assert.equal(await form.locator('[name="team"]').count(),0);
         await form.locator('button[type="submit"]').click();
         if(team){
-          const form=page.locator('form[data-account-action="login"]');
+          await page.locator('#login-error',{hasText:'가입한 아이디를 찾지 못했어요.'}).waitFor();
+          assert.equal(records.has(id),false);
+          await page.getByRole('link',{name:'회원가입',exact:true}).click();
+          const form=page.locator('form[data-account-action="register"]');
+          assert.equal(await form.locator('[name="username"]').inputValue(),id);
+          assert.equal(await page.locator('input[type="email"], input[type="password"]').count(),0);
           const choice=form.locator(`[name="team"][value="${team}"]`);
           await choice.focus();
           await choice.press('Space');
           assert(await choice.isChecked());
           assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-          assert.equal(records.size,id==='demo_a'&&resumeAvailable?0:1);
           await form.locator('button[type="submit"]').click();
         }
         await page.waitForFunction(expected=>FP.account.username===expected&&!FP.account.busy,id);
@@ -183,10 +187,24 @@ const assert=require('node:assert/strict'),path=require('node:path');
       await b.locator('.header-account').waitFor({state:'hidden'});
       await b.getByRole('link',{name:'로그인',exact:true}).click();
       resumeAvailable=false;
-      await enter(b,'demo_a','KT');
+      const login=b.locator('form[data-account-action="login"]');
+      await login.locator('[name="username"]').fill('demo_a');
+      await login.locator('button[type="submit"]').click();
+      await b.locator('#login-error',{hasText:'온라인 저장소 설정이 아직 완료되지 않았어요.'}).waitFor();
+      assert.equal(await b.locator('.login-teams').count(),0);
+      resumeAvailable=true;
+      await b.getByRole('link',{name:'회원가입',exact:true}).click();
+      const signup=b.locator('form[data-account-action="register"]');
+      await signup.locator('[name="team"][value="KT"] + span').click();
+      await signup.locator('button[type="submit"]').click();
+      await b.locator('#login-error',{hasText:'이미 가입한 아이디예요.'}).waitFor();
+      assert.equal(records.size,1);
+      assert.equal(records.get('demo_a').state.profile.team,'한화');
+      await b.getByRole('link',{name:'로그인',exact:true}).click();
+      await enter(b,'demo_a');
       await b.locator('.profile-card').getByText('한화 이글스',{exact:false}).waitFor();
       assert.deepEqual(errors,[]);
-      console.log('PASS '+width+'px: dedicated login, guest return, resume/new-ID team, missing lookup fallback, permissions, reactions and rankings');
+      console.log('PASS '+width+'px: explicit signup, existing login, duplicate ID, unavailable lookup, guest return and community');
       await a.close();await b.close();
     }
   } finally{await browser.close();}
