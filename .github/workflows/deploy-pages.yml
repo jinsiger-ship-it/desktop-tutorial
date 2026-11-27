@@ -36,6 +36,8 @@ jobs:
       actions: read
       pages: write
       id-token: write
+    env:
+      PAGES_ARTIFACT_NAME: github-pages-${{ github.run_attempt }}
     concurrency:
       group: github-pages
       cancel-in-progress: true
@@ -62,15 +64,18 @@ jobs:
       - name: Upload website files
         uses: actions/upload-pages-artifact@v3
         with:
+          name: ${{ env.PAGES_ARTIFACT_NAME }}
           path: ${{ runner.temp }}/fanplay-pages
       - name: Wait for the Pages artifact to become visible
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           for attempt in {1..8}; do
-            artifact=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?name=github-pages" \
-              --jq '.artifacts[] | select(.name == "github-pages" and (.expired | not)) | .id')
+            artifact=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?name=${PAGES_ARTIFACT_NAME}" \
+              --jq '.artifacts[] | select(.expired | not) | .id')
             if [[ -n "$artifact" ]]; then
+              # Allow time for the deploy action's artifact lookup to catch up.
+              sleep 5
               exit 0
             fi
             sleep 5
@@ -80,3 +85,5 @@ jobs:
       - name: Deploy site
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT_NAME }}
