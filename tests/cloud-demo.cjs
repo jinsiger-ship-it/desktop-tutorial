@@ -63,7 +63,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   assert.equal(await p2.evaluate(()=>FP.data.profile.nickname),'기기 하나');
   offline=true;assert.equal(await p2.evaluate(()=>FP.transact(d=>{d.profile.nickname='연결 실패';})),false);assert.equal(await p2.evaluate(()=>FP.data.profile.nickname),'기기 하나');offline=false;
   await p.reload();await p.waitForFunction(()=>!FP.account.checking);assert.equal(await p.evaluate(()=>FP.account.username),'demo_one');assert.equal(await p.evaluate(()=>FP.data.profile.nickname),'기기 하나');
-  await p.locator('[data-account-action="logout"] button').click();await p.waitForFunction(()=>!FP.account.busy&&!FP.account.username);assert.equal(await p.evaluate(()=>FP.data.tickets[0].id),'device-ticket');
+  await p.locator('[data-account-action="logout"] button').click();await p.waitForFunction(()=>!FP.account.busy&&!FP.account.username);assert.equal(await p.evaluate(()=>FP.data.tickets.length),0);
   await p.getByRole('link',{name:'로그인',exact:true}).click();
   await open(p,'other_demo');assert.equal(await p.evaluate(()=>FP.data.tickets.length),0);
   assert.deepEqual(errors,[]);

@@ -1,8 +1,9 @@
 /* 화면 전환, 폼, 공통 이벤트. 외부 라이브러리 없이 file://와 정적 서버 모두 지원합니다. */
 const app=document.querySelector('#app'), E=FP.esc;
 FP.toast = (message,decorate=false) => {const el=document.querySelector('#toast');el.textContent=message;if(decorate){const link=document.createElement('a');link.href='#create';link.textContent='바로 꾸미기 →';link.addEventListener('click',e=>{e.preventDefault();FP.openDecorationEditor();});el.appendChild(link);}el.classList.add('show');clearTimeout(FP.toastTimer);FP.toastTimer=setTimeout(()=>el.classList.remove('show'),4500);};
-FP.data=FP.load(localStorage);
+FP.data=FP.guestData=FP.defaults();
 let draft=null,draftExpected,draftPhotoMissing=false,filter='전체',formStage=1,photoBusy=false;
+let guestTicketDraft=null;
 let loginId='', loginReturn='profile', pendingShare=null, shareOptions=null;
 let backupPreview=null;
 let rankings={position:'투수',entries:[],mine:[],owner:null,error:'',loading:false,request:0};
@@ -14,7 +15,7 @@ FP.openDecorationEditor = () => {
  if(ticket)openTicketDraft(ticket,2);
  if(location.hash==='#create')render();else location.hash='create';
 };
-let matchResults = FP.loadMatchResults(localStorage);
+let guestMatches=[],matchResults=guestMatches,matchOwner=null;
 let matchImportReport=null;
 let appliedMatch = null;
 
@@ -67,15 +68,15 @@ app.addEventListener('change', async event => {
   if (target.matches('[data-result-file]')) {
     const file = target.files[0];
     if (!file) return;
+    const owner=FP.account.username;
     target.disabled = true;
     try {
       if (file.size > 1024 * 1024) throw new Error('1MB 이하의 경기 결과 파일을 선택해 주세요.');
       const imported = FP.parseMatchResults(await file.text(),false,true);
-      const report=await FP.withDeviceWrite(()=>{
-        const result=FP.mergeMatchResults(FP.loadMatchResults(localStorage),imported);
-        if(result.added||result.updated)localStorage.setItem(FP.matchResultsKey,JSON.stringify(result.matches));
-        return result;
-      });
+      if(owner!==FP.account.username||FP.account.restorePending)return;
+      const report=FP.mergeMatchResults(owner?FP.loadMatchResults(localStorage):guestMatches,imported);
+      if(owner&&(report.added||report.updated))localStorage.setItem(FP.matchResultsKey,JSON.stringify(report.matches));
+      if(!owner)guestMatches=report.matches;
       matchImportReport=report;
       matchResults=report.matches;
       if (form.isConnected) refreshMatchPicker(form);
@@ -139,11 +140,12 @@ function home() {
   </section>`;
 }
 function field(label,name,value,type='text',extra=''){return `<label>${label}<input name="${name}" type="${type}" value="${E(value)}" ${extra}></label>`;}
-const ticketDraftKey=()=> 'fanplay-ticket-draft-v1:'+(FP.account.username?'id:'+FP.account.username:'device');
+const ticketDraftKey=()=> 'fanplay-ticket-draft-v1:id:'+FP.account.username;
 function rememberTicketDraft(){
  if(!draft||FP.account.restorePending)return;
- const key=ticketDraftKey();
  const record={ticket:draft,stage:formStage,expected:draftExpected,photoMissing:draftPhotoMissing};
+ if(!FP.account.username){guestTicketDraft=record;return;}
+ const key=ticketDraftKey();
  try{localStorage.setItem(key,JSON.stringify(record));}
  catch{
   if(!draft.photo)return;
@@ -156,7 +158,7 @@ function rememberTicketDraft(){
 }
 function loadTicketDraft(){
  try{
-  const saved=JSON.parse(localStorage.getItem(ticketDraftKey())||'null');
+  const saved=FP.account.username?JSON.parse(localStorage.getItem(ticketDraftKey())||'null'):guestTicketDraft;
   if(!saved?.ticket||!FP.str(saved.ticket.id)||![1,2,3].includes(saved.stage))return;
   const data=saved.ticket;
   const clean=FP.ticketData({...data,date:FP.validDate(data.date)?data.date:'2000-01-01',home:FP.str(data.home).trim()||'홈',away:FP.str(data.away).trim()||'원정'});
@@ -176,14 +178,15 @@ function openTicketDraft(ticket,stage){
  rememberTicketDraft();
 }
 function clearTicketDraft(){
- try{localStorage.removeItem(ticketDraftKey());}catch{}
+ if(FP.account.username){try{localStorage.removeItem(ticketDraftKey());}catch{}}
+ else guestTicketDraft=null;
  draft=null;draftExpected=undefined;draftPhotoMissing=false;formStage=1;
 }
 function ticketPreview(){return `<div class="preview"><h2>티켓 미리보기</h2><div id="ticket-preview">${FP.ticket({...draft,home:draft.home||'홈 팀',away:draft.away||'원정 팀'})}</div></div>`;}
 function editor(){
  if(!draft)loadTicketDraft();
  if(!draft){draft={...FP.copy(FP.sample),id:uid(),date:new Date().toLocaleDateString('sv-SE'),stadium:'',home:'',away:'',hs:'',as:'',note:'',tag:'',stickerIds:[]};formStage=1;draftExpected=undefined;draftPhotoMissing=false;}
-return `${heading('MAKE A MEMORY','나의 티켓 만들기','경기 기록을 입력하고, 나만의 디자인으로 완성하세요.')}<div class="steps"><span class="${formStage===1?'active':''}">01 경기 기록</span><span class="${formStage===2?'active':''}">02 꾸미기</span><span class="${formStage===3?'active':''}">03 완성 미리보기</span></div><div class="editor-grid" data-stage="${formStage}"><form id="ticket-form" class="panel">${formStage===1?`<h2>어떤 경기였나요?</h2><div class="fields">${field('경기 날짜','date',draft.date,'date','required')}${field('야구장 / 시청 장소','stadium',draft.stadium,'text','maxlength="80" required')}</div><div data-result-picker>${resultPicker()}</div><details><summary>경기 결과 파일 불러오기</summary><label>경기 결과 파일 <input type="file" data-result-file accept=".json,application/json"></label></details><div class="fields">${field('홈 팀','home',draft.home,'text','maxlength="40" required')}${field('원정 팀','away',draft.away,'text','maxlength="40" required')}${field('홈 점수','hs',draft.hs,'number','min="0" max="99" required')}${field('원정 점수','as',draft.as,'number','min="0" max="99" required')}</div><label>관람 방식<select name="mode"><option ${draft.mode==='직관'?'selected':''}>직관</option><option ${draft.mode==='중계'?'selected':''}>중계</option></select></label>${field('태그','tag',draft.tag,'text','maxlength="30" placeholder="예: 첫 직관"')}<label>한 줄 감상<textarea name="note" maxlength="180" placeholder="이날의 기분을 남겨주세요">${E(draft.note)}</textarea></label><button class="btn" type="submit">꾸미기로 →</button>`:formStage===2?`<h2>나만의 한 장으로</h2><label>티켓 스타일<select name="theme">${[['classic','클래식'],['scoreboard','전광판'],['photo','포토']].map(([id,name])=>`<option value="${id}" ${draft.theme===id?'selected':''}>${name}</option>`).join('')}</select></label><label>컬러<select name="color">${[['forest','포레스트'],['rose','로즈'],['blue','블루'],['sand','샌드']].map(([id,name])=>`<option value="${id}" ${draft.color===id?'selected':''}>${name}</option>`).join('')}</select></label><label>경기 사진 (선택 · JPG/PNG/WebP · 최대 12MB)<input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label><p class="muted" id="photo-status">긴 변 900px로 줄여 보관합니다.</p>${button('사진 제거','remove-photo','','secondary')}${ticketPreview()}${decorationPicker()}<div class="actions">${draft.mode==='커리어'?'<a class="btn secondary" href="#collection">← 수집함</a>':button('← 경기 기록','stage','1','secondary')}<button class="btn" type="submit" ${photoBusy?'disabled':''}>완성 미리보기 →</button></div>`:`<h2>이 순간을 간직할까요?</h2><p>티켓과 획득 보상은 새로고침 후에도 남습니다.</p><p class="muted">사진이 없으면 기본 다이아몬드 그래픽이 표시됩니다. 실제 입장권으로 사용할 수 없습니다.</p><div class="actions">${button('← 꾸미기','stage','2','secondary')}<button class="btn" type="submit">수집함에 저장 ↗</button></div>`}</form>${formStage===2?'':ticketPreview()}</div>`;}
+return `${heading('MAKE A MEMORY','나의 티켓 만들기','경기 기록을 입력하고, 나만의 디자인으로 완성하세요.')}<div class="steps"><span class="${formStage===1?'active':''}">01 경기 기록</span><span class="${formStage===2?'active':''}">02 꾸미기</span><span class="${formStage===3?'active':''}">03 완성 미리보기</span></div><div class="editor-grid" data-stage="${formStage}"><form id="ticket-form" class="panel">${formStage===1?`<h2>어떤 경기였나요?</h2><div class="fields">${field('경기 날짜','date',draft.date,'date','required')}${field('야구장 / 시청 장소','stadium',draft.stadium,'text','maxlength="80" required')}</div><div data-result-picker>${resultPicker()}</div><details><summary>경기 결과 파일 불러오기</summary><label>경기 결과 파일 <input type="file" data-result-file accept=".json,application/json"></label></details><div class="fields">${field('홈 팀','home',draft.home,'text','maxlength="40" required')}${field('원정 팀','away',draft.away,'text','maxlength="40" required')}${field('홈 점수','hs',draft.hs,'number','min="0" max="99" required')}${field('원정 점수','as',draft.as,'number','min="0" max="99" required')}</div><label>관람 방식<select name="mode"><option ${draft.mode==='직관'?'selected':''}>직관</option><option ${draft.mode==='중계'?'selected':''}>중계</option></select></label>${field('태그','tag',draft.tag,'text','maxlength="30" placeholder="예: 첫 직관"')}<label>한 줄 감상<textarea name="note" maxlength="180" placeholder="이날의 기분을 남겨주세요">${E(draft.note)}</textarea></label><button class="btn" type="submit">꾸미기로 →</button>`:formStage===2?`<h2>나만의 한 장으로</h2><label>티켓 스타일<select name="theme">${[['classic','클래식'],['scoreboard','전광판'],['photo','포토']].map(([id,name])=>`<option value="${id}" ${draft.theme===id?'selected':''}>${name}</option>`).join('')}</select></label><label>컬러<select name="color">${[['forest','포레스트'],['rose','로즈'],['blue','블루'],['sand','샌드']].map(([id,name])=>`<option value="${id}" ${draft.color===id?'selected':''}>${name}</option>`).join('')}</select></label><label>경기 사진 (선택 · JPG/PNG/WebP · 최대 12MB)<input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label><p class="muted" id="photo-status">긴 변 900px로 줄여 보관합니다.</p>${button('사진 제거','remove-photo','','secondary')}${ticketPreview()}${decorationPicker()}<div class="actions">${draft.mode==='커리어'?'<a class="btn secondary" href="#collection">← 수집함</a>':button('← 경기 기록','stage','1','secondary')}<button class="btn" type="submit" ${photoBusy?'disabled':''}>완성 미리보기 →</button></div>`:`<h2>이 순간을 간직할까요?</h2><p>${FP.account.username?'티켓을 계정에 보관해요.':'티켓은 이번 방문 중에 수집함에서 볼 수 있어요.'}</p><p class="muted">사진이 없으면 기본 다이아몬드 그래픽이 표시됩니다. 실제 입장권으로 사용할 수 없습니다.</p><div class="actions">${button('← 꾸미기','stage','2','secondary')}<button class="btn" type="submit">수집함에 저장 ↗</button></div>`}</form>${formStage===2?'':ticketPreview()}</div>`;}
 function decorationPicker() {
  const types=[['frame','프레임'],['background','배경'],['sticker','스티커'],['badge','배지']];
  const fields={frame:'frameId',background:'backgroundId',sticker:'stickerIds',badge:'badgeId'};
@@ -202,7 +205,7 @@ function decorationPicker() {
 }
 function collection(){
  const ts=FP.data.tickets.filter(t=>filter==='전체'||t.mode===filter);
- const scope=FP.account.username?'계정에 저장된 티켓':'이 브라우저에 저장된 티켓';
+ const scope=FP.account.username?'계정에 저장된 티켓':'이번 방문의 티켓';
  const resumeShare=FP.account.username&&shareOptions?sharePanel():
   FP.account.username&&pendingShare?`<section class="panel pending-share"><h2>선택한 티켓 게시하기</h2>${FP.ticket(pendingShare)}<div class="actions">${button('커뮤니티에 게시','resume-share')}${button('닫기','dismiss-share','','secondary')}</div></section>`:'';
  return `${heading('MY COLLECTION','나의 티켓 수집함',`${scope} · ${FP.data.tickets.length}장`)}${resumeShare}<div class="toolbar"><div class="tabs">${['전체','직관','중계','커리어'].map(f=>button(f,'filter',f,filter===f?'':'secondary')).join('')}</div>${FP.data.tickets.length?'<a class="btn" href="#create">+ 티켓 만들기</a>':''}</div>${ts.length?`<div class="collection-grid">${ts.map(t=>`<section>${t.id===FP.data.profile.featuredTicketId?'<div class="badge">★ 대표 티켓</div>':''}${FP.ticket(t)}<div class="card-actions">${button('상세 / 수정','edit',t.id,'secondary')}${button('대표 지정','feature',t.id,'secondary')}${button('게시','share',t.id,'secondary')}${button('삭제','delete',t.id,'quiet')}</div></section>`).join('')}</div>`:FP.data.tickets.length?empty('이 분류에 저장된 티켓이 없어요.'):empty('아직 저장한 티켓이 없어요.','create','첫 티켓 만들기')}`;
@@ -234,8 +237,8 @@ function profile(){
     '<a class="btn profile-login" href="#login" data-login-return="profile">로그인</a>':
     `<small>${E(team[1])}${FP.cloudMode?' · '+E(FP.account.username):''}</small>`}
  </section>
- <a class="panel my-collection-link" href="#collection"><div><strong>내 수집함</strong><span>${FP.account.username?'계정에 저장된 티켓':'이 브라우저에 저장된 티켓'}</span></div><span>티켓 ${d.tickets.length}장 →</span></a>
- ${FP.cloudMode&&!guest?'':'<a class="text-link" href="#records">기록 파일 관리 →</a>'}
+ <a class="panel my-collection-link" href="#collection"><div><strong>내 수집함</strong><span>${FP.account.username?'계정에 저장된 티켓':'이번 방문의 티켓'}</span></div><span>티켓 ${d.tickets.length}장 →</span></a>
+ ${FP.account.username&&!FP.cloudMode?'<a class="text-link" href="#records">기록 파일 관리 →</a>':''}
  ${FP.cloudMode?'':FP.accountPanel()}
  <div class="profile-grid"><section><div class="section-title"><h2>대표 티켓</h2>${d.profile.selectedTitleId?`<span class="badge">✦ ${FP.titles.find(t=>t.id===d.profile.selectedTitleId).name}</span>`:''}</div>${t?FP.ticket(t):empty('대표 티켓을 지정해 주세요.','collection','수집함 열기')}${t?button('대표 지정 해제','unfeature','','secondary'):''}</section></div>`;
 }
@@ -271,11 +274,11 @@ function accountTools(){
  return `<a class="text-link" href="#profile">‹ 마이</a>${heading('','계정 및 기록 관리')}${FP.cloudAccountTools()}${recordTools()}`;
 }
 function recordTools(){
- const notice=FP.account.username?FP.accountRecovery:FP.deviceRecovery;
- const original=notice?.raw||readStoredRecovery();
- const controls=original?`<section class="panel"><h2>기록 복구</h2><p>${notice?.unreadable?'기존 파일을 읽지 못했어요. 원본을 내려받거나 올바른 백업을 선택해 주세요.':'복구 전 원본 기록을 내려받을 수 있어요.'}</p>
+ if(!FP.account.username)return '';
+ const original=FP.accountRecovery?.raw||readStoredRecovery();
+ const controls=original?`<section class="panel"><h2>기록 복구</h2><p>복구 전 원본 기록을 내려받을 수 있어요.</p>
    ${button('원본 기록 내려받기','records-download-original','','secondary')}
-   ${notice?.unreadable&&!FP.account.username?button('새 브라우저 기록 시작','records-reset-local','','quiet'):''}</section>`:'';
+   </section>`:'';
  const preview=backupPreview;
  const conflicting=preview?.state.tickets.filter(t=>FP.data.tickets.some(current=>current.id===t.id&&JSON.stringify(current)!==JSON.stringify(t)))||[];
  return controls+FP.recordBackupTools()+(preview?`<section class="panel"><h2>가져오기 확인</h2>
@@ -285,10 +288,16 @@ function recordTools(){
    <div class="actions">${button('현재 기록 우선','records-apply','account')}${button('파일 기록 우선','records-apply','device','secondary')}${button('취소','records-cancel','','quiet')}</div></section>`:'');
 }
 function readStoredRecovery(){
- const key=FP.account.username?'fanplay-account-recovery-'+FP.account.username:FP.key+'-recovery';
- try{return localStorage.getItem(key);}catch{return null;}
+ if(!FP.account.username)return null;
+ try{
+  const legacy=FP.readDevice(localStorage);
+  return localStorage.getItem('fanplay-account-recovery-'+FP.account.username)||localStorage.getItem(FP.key+'-recovery')||
+   (legacy.unreadable||legacy.issues.length?legacy.raw:null);
+ }catch{return null;}
 }
-function recordScreen(){return `<a class="text-link" href="#profile">‹ 마이</a>${heading('','기록 파일 관리')}${recordTools()}`;}
+function recordScreen(){return FP.account.username?
+ `<a class="text-link" href="#profile">‹ 마이</a>${heading('','기록 파일 관리')}${recordTools()}`:
+ `<a class="text-link" href="#profile">‹ 마이</a>${heading('','기록 파일 관리','로그인하면 기록을 내려받거나 복원할 수 있어요.')}<a class="btn" href="#${FP.cloudMode?'login':'profile'}">로그인</a>`;}
 function profileEdit(){const d=FP.data;return `<a class="text-link" href="#profile">← 마이페이지</a>${heading('MY PAGE','회원정보 수정')}<form id="profile-form" class="panel">${field('닉네임','nickname',d.profile.nickname,'text','maxlength="24" required')}<label>응원팀 테마<select name="team">${FP.teams.map(t=>`<option value="${t[0]}" ${d.profile.team===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select></label><label>전시할 칭호<select name="title"><option value="">칭호 없음</option>${FP.titles.filter(t=>d.inventory.titleIds.includes(t.id)).map(t=>`<option value="${t.id}" ${d.profile.selectedTitleId===t.id?'selected':''}>${t.name}</option>`).join('')}</select></label><button class="btn" type="submit">회원정보 저장</button></form>`;}
 function careerSummary(career) {
   if([6,7,8].includes(career.rules)) return storySummary(career);
@@ -434,7 +443,7 @@ function storyGame(c) {
  const version=`${c.id}:${c.moves.length}`,labels=FP.careerStatLabels(c.position);
  const status=c.retired?`${c.step}시즌 · 은퇴`:c.pending?.id==='retirement'?'7시즌 결산':`${c.step+1}시즌 · ${['시즌 준비','전반기','승부처','시즌 마무리'][c.segment]}`;
  return `${heading('PLAYER CAREER',E(c.name)+'의 야구 인생',E(c.club)+' · '+FP.careerRoles[c.role])}
- <div class="story-status"><span>${status}</span><span>${FP.account.username?(FP.cloudMode?'온라인 저장':'계정에 저장'):'이 기기에 저장'}</span></div>
+ <div class="story-status"><span>${status}</span><span>${FP.account.username?(FP.cloudMode?'온라인 저장':'계정에 저장'):'이번 방문만'}</span></div>
  <section class="panel story-scene">${c.retired?`<h2>은퇴 결산</h2>${storySummary(c)}<div class="actions">${button('다음 선수 만들기','career-draft')}</div>`:
  c.pending?`<div class="decision-scene"><img src="assets/broadcast/${c.position==='투수'?'pitch-ready':'bat-ready'}.webp" alt=""></div><div class="eyebrow">${c.pending.category}</div><h2 tabindex="-1" data-decision-title>${c.pending.title}</h2><p>${c.pending.prompt}</p><div class="choices">${c.pending.choices.map((ch,i)=>`<button type="button" data-action="auto-choice" data-value="${version}:${i}"><div><strong>${ch.label}</strong><small>${ch.hint}</small></div><b aria-hidden="true">›</b></button>`).join('')}</div>`:
  `<div class="career-broadcast" aria-label="가상 경기 중계">${broadcastPlayer(playbackFor(c))}</div><p class="career-news" role="status">${E(c.news)}</p><div class="actions playback-controls">${button(careerPaused?'계속 진행':'일시정지','auto-pause','','secondary')}${button('다음 선택까지','auto-skip',version)}</div>`}</section>
@@ -636,6 +645,12 @@ async function advanceTimeline(id, version, move, skip=false) {
 
 const screens={home,create:editor,collection,game,ranking:rankingScreen,community,profile,'profile-edit':profileEdit,login,'login-team':login,account:accountTools,records:recordScreen};
 function render() {
+  if(matchOwner!==FP.account.username){
+    matchOwner=FP.account.username;
+    matchResults=matchOwner?FP.loadMatchResults(localStorage):guestMatches;
+    matchImportReport=null;
+    appliedMatch=null;
+  }
   theme();
   const route = location.hash.slice(1) || 'home';
   const view = Object.hasOwn(screens, route) ? route : 'home';
@@ -656,13 +671,13 @@ function render() {
   const restore=FP.account.restorePending?`<section class="panel"><h1>온라인 기록 복원</h1>
    <p role="status">${E(FP.account.checking?'이전에 접속한 온라인 기록을 확인하고 있어요.':FP.cloudError||'온라인 기록을 복원하지 못했어요.')}</p>
    ${FP.account.checking?'':`<div class="actions">${button('다시 연결','cloud-retry')}${button('비회원으로 계속','cloud-guest','','secondary')}</div>`}</section>`:'';
-  const recovery=(!FP.account.username&&FP.deviceRecovery&&view!=='records')?`<p role="status"><a class="text-link" href="#records">기록 파일과 복구 확인 →</a></p>`:'';
+  const guestNotice=!FP.account.username&&['create','collection','game','profile','login','login-team'].includes(view)?
+    '<p class="notice">비회원 기록은 이번 방문에만 유지돼요. 새로고침하거나 탭을 닫으면 사라져요.</p>':'';
   const draftNotice=view==='create'?`<div class="actions"><button type="button" class="btn quiet" data-action="discard-ticket-draft">작성 중인 티켓 삭제</button>
-   ${FP.deviceConflict||FP.accountSaveState==='error'?button('최신 티켓 확인 후 다시 저장','ticket-rebase','','secondary'):''}
+   ${FP.account.username&&FP.accountSaveState==='error'?button('최신 티켓 확인 후 다시 저장','ticket-rebase','','secondary'):''}
    </div>`:'';
   const rankLink=view==='game'&&FP.communityMode?'<a class="text-link" href="#ranking">투수·타자 랭킹 →</a>':'';
-  const conflict=!FP.account.username&&FP.deviceConflict&&view!=='create'?`<section class="panel" role="status"><p>다른 탭에서 저장한 기록과 겹쳤어요.</p><div class="actions">${button('최신 기기 기록 열기','records-load-latest')}${button('내 변경 사본 내려받기','records-download-conflict','','secondary')}</div></section>`:'';
-  app.innerHTML = restore || recovery+conflict+rankLink+screens[view]()+draftNotice+(view==='create'&&draftPhotoMissing?'<p role="status">텍스트와 꾸미기를 복구했어요. 사진은 다시 선택해 주세요.</p>':'');
+  app.innerHTML = restore || guestNotice+rankLink+screens[view]()+draftNotice+(view==='create'&&draftPhotoMissing?'<p role="status">텍스트와 꾸미기를 복구했어요. 사진은 다시 선택해 주세요.</p>':'');
   const nextClip = app.querySelector?.('.broadcast-clip');
   if (previousClip && nextClip?.dataset.version===previousClip.dataset.version) nextClip.replaceWith(previousClip);
   for (const selector of openSections) {
@@ -852,14 +867,15 @@ app.addEventListener('click',async e=>{const b=e.target.closest('[data-action]')
 if(a==='stage'){syncDraft(document.querySelector('#ticket-form'));formStage=Number(v);rememberTicketDraft();render();}
 if(a==='remove-photo'){draft.photo='';draftPhotoMissing=false;rememberTicketDraft();render();}
 if(a==='discard-ticket-draft'&&confirm('작성 중인 티켓을 지울까요? 수집함에 저장한 티켓은 남아요.')){clearTicketDraft();render();return;}
-if(a==='ticket-rebase'&&draft){
+if(a==='ticket-rebase'&&draft&&FP.account.username){
  try{
-  const result=FP.account.username?await FP.accountRequest('login','POST',{username:FP.account.username}):null;
-  const latest=result?FP.normalize(result.state):FP.readDevice(localStorage).state;
+  const result=FP.cloudMode?await FP.accountRequest('login','POST',{username:FP.account.username}):await FP.accountRequest('session');
+  if(!result.username)throw new Error('다시 로그인해 주세요.');
+  const latest=FP.normalize(result.state);
   const original=latest.tickets.find(t=>t.id===draft.id);
   const detail=original?`${original.date} · ${original.home} / ${original.away}`:'최신 기록에 이 티켓이 없어요.';
   if(!confirm(detail+'\n현재 초안으로 다시 저장할 수 있게 할까요?'))return;
-  if(result)FP.useAccount(result);else FP.data=FP.load(localStorage);
+  FP.useAccount(result);
   draftExpected=JSON.stringify(original??null);rememberTicketDraft();render();
  }catch(error){FP.toast(error.message);}
  return;
@@ -905,30 +921,22 @@ if(a==='career-season') {
  if(await FP.advanceCareer(id,Number(season),Number(option)))render();
 }
 if(a==='career-title') { const [id,title]=v.split(':'); if(await FP.selectCareerTitle(id,title)){render();FP.toast('호칭을 기록과 프로필에 전시했어요.');} }
-if(a==='guest-import'){if(await FP.importGuestRecords(v)){render();FP.toast('기기 기록을 계정에 가져왔어요.');}else render();}
+if(a==='guest-import'){if(await FP.importGuestRecords(v,b.dataset.source))FP.toast('선택한 기록을 계정에 가져왔어요.');render();}
 if(a==='cloud-download')FP.downloadDemoState?.();
 if(a==='cloud-retry'&&FP.cloudMode){const restoring=FP.restoreAccount();render();await restoring;render();return;}
 if(a==='cloud-guest'&&FP.continueAsGuest?.()){backupPreview=null;render();return;}
-if(a==='records-download'){FP.downloadRecordFile(JSON.stringify({format:'fanplay-backup',version:1,state:FP.data},null,2),'fanplay-records.json');return;}
-if(a==='records-download-conflict'&&!FP.account.username&&FP.pendingDeviceSave){FP.downloadRecordFile(JSON.stringify(FP.pendingDeviceSave,null,2),'fanplay-unsaved-device.json');return;}
-if(a==='records-load-latest'&&!FP.account.username){FP.data=FP.load(localStorage);FP.deviceConflict=false;careerPaused=true;render();return;}
-if(a==='records-download-pending'&&FP.pendingAccountSave?.username===FP.account.username){
+if(a==='records-download'&&FP.account.username){FP.downloadRecordFile(JSON.stringify({format:'fanplay-backup',version:1,state:FP.data},null,2),'fanplay-records.json');return;}
+if(a==='records-download-pending'&&FP.account.username&&FP.pendingAccountSave?.username===FP.account.username){
  FP.downloadRecordFile(JSON.stringify(FP.pendingAccountSave.state,null,2),'fanplay-unsaved.json');return;
 }
-if(a==='records-download-original'){
- const raw=(FP.account.username?FP.accountRecovery:FP.deviceRecovery)?.raw||readStoredRecovery();
+if(a==='records-download-original'&&FP.account.username){
+ const raw=FP.accountRecovery?.raw||readStoredRecovery();
  if(raw)FP.downloadRecordFile(raw,'fanplay-original.json');return;
 }
-if(a==='records-reset-local'&&!FP.account.username&&confirm('원본을 이 브라우저에 보관하고 빈 기록으로 시작할까요?')){
- if(await FP.replaceUnreadableDevice(FP.defaults()))render();
- return;
-}
 if(a==='records-cancel'){backupPreview=null;render();return;}
-if(a==='records-apply'&&backupPreview){
+if(a==='records-apply'&&backupPreview&&FP.account.username){
  const next=FP.mergeGuestRecords(FP.data,backupPreview.state,v);
- const saved=!FP.account.username&&FP.deviceRecovery?.unreadable
-  ? await FP.replaceUnreadableDevice(next)
-  : await FP.transact(state=>Object.assign(state,next));
+ const saved=await FP.transact(state=>Object.assign(state,next));
  if(saved){backupPreview=null;render();FP.toast('기록 파일을 가져왔어요.');}
  return;
 }
@@ -940,8 +948,8 @@ if(a==='cloud-refresh'&&FP.cloudMode&&FP.account.username){
   finally{FP.account.busy=false;scheduleCareer();}
  }
 }
-if(a==='guest-dismiss'){FP.dismissGuestImport();render();}
-if(a==='guest-review'){FP.reopenGuestImport();render();if(!FP.guestImportCandidate())FP.toast('가져올 기기 기록이 없어요.');}
+if(a==='guest-dismiss'){FP.dismissGuestImport(b.dataset.source);render();}
+if(a==='guest-review'){const available=FP.reopenGuestImport();render();if(!available)FP.toast('가져올 기록이 없어요.');}
 if(a==='reward-decorate')FP.openDecorationEditor();
 if(a==='import-backup'){
  let saved;try{saved=localStorage.getItem('fanplay-before-import-'+FP.account.username);}catch{}
@@ -1026,23 +1034,28 @@ app.addEventListener('click',e=>{
  if(link.hasAttribute('data-login-cancel')){loginId='';loginReturn='profile';pendingShare=null;return;}
  e.preventDefault();openLogin(link.dataset.loginReturn);
 });
-function refreshDeviceOutsideEdits(){
- if(FP.account.username||FP.account.restorePending||['#create','#game'].includes(location.hash))return false;
- FP.data=FP.load(localStorage);
- return true;
-}
 window.addEventListener('hashchange',()=>{
- refreshDeviceOutsideEdits();
  render();window.scrollTo(0,0);
  app.querySelector?.('.login-screen h1')?.focus();
  if(location.hash==='#ranking')void loadRankings();
 });
-window.addEventListener('storage',event=>{
- if(event.key===FP.key&&refreshDeviceOutsideEdits())render();
+window.addEventListener('pageshow',event=>{
+ if(!event.persisted)return;
+ FP.guestData=FP.defaults();
+ guestTicketDraft=null;
+ guestMatches=[];
+ pendingShare=null;
+ if(FP.account.username)return;
+ FP.data=FP.guestData;
+ matchResults=guestMatches;
+ matchImportReport=null;
+ appliedMatch=null;
+ draft=null;formStage=1;careerBroadcast=null;
+ render();
 });
 app.addEventListener('change',async event=>{
  const input=event.target;
- if(!input.matches('[data-record-backup]'))return;
+ if(!FP.account.username||!input.matches('[data-record-backup]'))return;
  const file=input.files[0],generation=FP.account.generation;
  input.value='';
  if(!file)return;
@@ -1074,4 +1087,3 @@ restoredAccount.then(available => {
   if(location.hash==='#community')void FP.refreshCommunity?.(true);
   if(location.hash==='#ranking')void loadRankings();
 });
-if(FP.loadWarning)FP.toast('일부 기록을 읽지 못했어요. 기록 파일 관리에서 원본을 확인할 수 있어요.');else if(FP.migrated)FP.toast('기존 Diamond Memories 기록을 불러왔습니다. 다음 저장 시 FANPLAY 형식으로 저장합니다.');
