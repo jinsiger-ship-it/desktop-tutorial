@@ -1,7 +1,7 @@
 {
   "name": "fanplay",
   "private": true,
-  "version": "0.10.2",
+  "version": "0.10.3",
   "engines": {
     "node": ">=24"
   },

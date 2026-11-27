@@ -602,6 +602,7 @@ html {
 .login-note { margin: 8px 0 18px; font-size: 13px; color: #465850; }
 .login-error { color: #7a2c22; font-size: 13px; font-weight: 700; margin: 6px 0 12px; }
 .login-error:empty { margin: 0; }
+.login-switch { margin-top: 8px; }
 .login-guest { display: flex; width: fit-content; margin: 12px auto 0; text-decoration: underline; }
 .login-teams {
   padding: 0;
@@ -614,7 +615,8 @@ html {
 }
 .login-teams label { position: relative; margin: 0; }
 .login-teams label:last-child { grid-column: span 2; }
-.login-teams input, .login-teams legend {
+.login-teams legend { margin-bottom: 8px; padding: 0; font-weight: 700; }
+.login-teams input {
   position: absolute;
   width: 1px;
   height: 1px;

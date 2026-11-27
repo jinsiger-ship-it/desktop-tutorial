@@ -5,6 +5,7 @@ FP.data=FP.guestData=FP.defaults();
 let draft=null,draftExpected,draftPhotoMissing=false,filter='전체',formStage=1,photoBusy=false;
 let guestTicketDraft=null;
 let loginId='', loginReturn='profile', pendingShare=null, shareOptions=null;
+const demoAuthRoutes=['login','register','login-team'];
 let backupPreview=null;
 let rankings={position:'투수',entries:[],mine:[],owner:null,error:'',loading:false,request:0};
 let careerTimer, careerPaused=false, careerSaving=false;
@@ -248,25 +249,23 @@ function openLogin(destination, ticket=null){
  pendingShare=ticket;
  location.hash='login';
 }
-function login(){
+function login(signup=false){
  if(!FP.cloudMode)return profile();
  if(FP.account.username)return accountTools();
- const chooseTeam=location.hash==='#login-team'&&loginId;
+ const title=signup?'회원가입':'로그인';
  const backLabel={profile:'마이',collection:'내 수집함',community:'커뮤니티'}[loginReturn];
- const back=chooseTeam?'<a class="text-link" href="#login">‹ 로그인</a>':
-   `<a class="text-link" href="#${loginReturn}" data-login-cancel>‹ ${backLabel}</a>`;
- const error='<p class="login-error" id="login-error" role="alert"></p>';
- const teamOptions=[...FP.teams.slice(1),FP.teams[0]].map(([id,name])=>
-   `<label><input type="radio" name="team" value="${E(id)}" aria-label="${E(id==='neutral'?'응원팀 없음':name)}" required><span>${E(id==='neutral'?'응원팀 없음':id)}</span></label>`).join('');
+ const teamChoices=signup?`<fieldset class="login-teams"><legend>응원팀</legend>${[...FP.teams.slice(1),FP.teams[0]].map(([id,name])=>
+   `<label><input type="radio" name="team" value="${E(id)}" aria-label="${E(id==='neutral'?'응원팀 없음':name)}" required><span>${E(id==='neutral'?'응원팀 없음':id)}</span></label>`).join('')}</fieldset>`:'';
  let content;
  if(FP.account.checking)content='<p role="status">온라인 기록을 확인하고 있어요.</p>';
  else if(!FP.account.available)content=`<p class="muted" role="status">${E(FP.cloudError||'온라인 저장소를 연결해 주세요.')}</p>${button('연결 다시 확인','cloud-retry','','secondary')}`;
- else if(chooseTeam)content=`<p class="login-intro">${FP.cloudResumeUnavailable?'기존 아이디는 저장된 응원팀으로 이어가요.':'마이 화면에 팀 테마가 적용돼요.'}</p>
-   <form data-account-action="login"><input type="hidden" name="username" value="${E(loginId)}"><fieldset class="login-teams"><legend class="visually-hidden">응원팀</legend>${teamOptions}</fieldset>${error}<button class="btn" type="submit">시작하기</button></form>`;
- else content=`<p class="login-intro">내 티켓과 커리어를 이어가요.</p><form data-account-action="${FP.communityMode?'resume':'login'}"><label for="demo-login-id">아이디</label><input id="demo-login-id" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" pattern="[a-zA-Z0-9_]{3,24}" minlength="3" maxlength="24" required aria-describedby="login-note login-error" value="${E(loginId)}" placeholder="예: fanplay_01">${error}
-   <p class="login-note" id="login-note">같은 아이디를 아는 사람과 기록을 공유해요.</p><button class="btn" type="submit">아이디로 계속</button></form>`;
- return `<section class="login-screen">${back}<h1 tabindex="-1">${chooseTeam?'응원팀 선택':'로그인'}</h1>${content}
-   ${chooseTeam?'':`<a class="text-link login-guest" href="#${loginReturn}" data-login-cancel>비회원으로 계속</a>`}</section>`;
+ else content=`<p class="login-intro">${signup?'아이디와 응원팀을 선택해 시작해요.':'가입한 아이디로 티켓과 커리어를 이어가요.'}</p>
+   <form data-account-action="${signup?'register':'login'}"><label for="demo-login-id">아이디</label><input id="demo-login-id" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" pattern="[a-zA-Z0-9_]{3,24}" minlength="3" maxlength="24" required aria-describedby="login-note login-error" value="${E(loginId)}" placeholder="예: fanplay_01">
+   <p class="login-note" id="login-note">${signup?'영문·숫자·밑줄 3~24자. ':''}같은 아이디를 아는 사람과 기록을 공유해요.</p>
+   ${teamChoices}<p class="login-error" id="login-error" role="alert"></p><button class="btn" type="submit">${title}</button></form>
+   <a class="btn secondary login-switch" href="#${signup?'login':'register'}">${signup?'로그인':'회원가입'}</a>`;
+ return `<section class="login-screen"><a class="text-link" href="#${loginReturn}" data-login-cancel>‹ ${backLabel}</a>
+   <h1 tabindex="-1">${title}</h1>${content}<a class="text-link login-guest" href="#${loginReturn}" data-login-cancel>비회원으로 계속</a></section>`;
 }
 function accountTools(){
  if(!FP.cloudMode)return profile();
@@ -643,7 +642,8 @@ async function advanceTimeline(id, version, move, skip=false) {
   }
 }
 
-const screens={home,create:editor,collection,game,ranking:rankingScreen,community,profile,'profile-edit':profileEdit,login,'login-team':login,account:accountTools,records:recordScreen};
+const signup=()=>login(true);
+const screens={home,create:editor,collection,game,ranking:rankingScreen,community,profile,'profile-edit':profileEdit,login,register:signup,'login-team':signup,account:accountTools,records:recordScreen};
 function render() {
   if(matchOwner!==FP.account.username){
     matchOwner=FP.account.username;
@@ -655,7 +655,7 @@ function render() {
   const route = location.hash.slice(1) || 'home';
   const view = Object.hasOwn(screens, route) ? route : 'home';
   const activeTab = view === 'create' ? 'home' : view==='ranking'?'game':['collection','profile-edit','account','records'].includes(view) ? 'profile' : view;
-  const loginPage=FP.cloudMode&&['login','login-team'].includes(view)&&!FP.account.username;
+  const loginPage=FP.cloudMode&&demoAuthRoutes.includes(view)&&!FP.account.username;
   document.querySelector('.bottomnav')?.toggleAttribute?.('hidden',loginPage);
   const accountLink=document.querySelector('.header-account');
   if(accountLink?.toggleAttribute){
@@ -671,7 +671,7 @@ function render() {
   const restore=FP.account.restorePending?`<section class="panel"><h1>온라인 기록 복원</h1>
    <p role="status">${E(FP.account.checking?'이전에 접속한 온라인 기록을 확인하고 있어요.':FP.cloudError||'온라인 기록을 복원하지 못했어요.')}</p>
    ${FP.account.checking?'':`<div class="actions">${button('다시 연결','cloud-retry')}${button('비회원으로 계속','cloud-guest','','secondary')}</div>`}</section>`:'';
-  const guestNotice=!FP.account.username&&['create','collection','game','profile','login','login-team'].includes(view)?
+  const guestNotice=!FP.account.username&&(loginPage||['create','collection','game','profile'].includes(view))?
     '<p class="notice">비회원 기록은 이번 방문에만 유지돼요. 새로고침하거나 탭을 닫으면 사라져요.</p>':'';
   const draftNotice=view==='create'?`<div class="actions"><button type="button" class="btn quiet" data-action="discard-ticket-draft">작성 중인 티켓 삭제</button>
    ${FP.account.username&&FP.accountSaveState==='error'?button('최신 티켓 확인 후 다시 저장','ticket-rebase','','secondary'):''}
@@ -747,11 +747,14 @@ app.addEventListener('change',async event=>{
  }
 });
 async function submitAccount(form) {
+  if(FP.account.busy)return;
   const action = form.dataset.accountAction;
   const credentials = Object.fromEntries(new FormData(form));
   if (action === 'delete' && !confirm('이 계정과 서버에 저장된 기록을 삭제할까요?')) return;
   FP.account.busy = true;
   const submit = form.querySelector('button[type="submit"]');
+  const inlineError=form.querySelector('.login-error');
+  if(inlineError)inlineError.textContent='';
   submit.disabled = true;
   try {
     const result = action === 'delete'
@@ -761,14 +764,6 @@ async function submitAccount(form) {
         username: action === 'logout' ? FP.account.username : credentials.username,
         acceptedTerms: credentials.acceptedTerms === 'on'
       });
-    if(action==='resume'&&!result){
-      if(['#login','#login-team'].includes(location.hash)){
-        loginId=credentials.username.trim().toLowerCase();
-        if(location.hash==='#login-team')render();
-        else location.hash='login-team';
-      }
-      return;
-    }
     FP.useAccount(result);
     backupPreview=null;
     shareOptions=null;
@@ -779,16 +774,15 @@ async function submitAccount(form) {
     filter = '전체';
     if(FP.cloudMode){
       if(action==='logout'){pendingShare=null;location.hash='profile';}
-      else if(['#login','#login-team'].includes(location.hash))location.hash=loginReturn;
+      else if(demoAuthRoutes.includes(location.hash.slice(1)))location.hash=loginReturn;
       loginReturn='profile';
       loginId='';
     }
     render();
-    FP.toast(FP.cloudMode ? (result.username?'온라인 시연 기록을 불러왔어요.':'아이디 사용을 종료했어요.') : action === 'delete' ? '계정과 기록을 삭제했습니다.'
+    FP.toast(FP.cloudMode ? (action==='register'?'회원가입을 완료했어요.':result.username?'온라인 시연 기록을 불러왔어요.':'아이디 사용을 종료했어요.') : action === 'delete' ? '계정과 기록을 삭제했습니다.'
       : result.username ? '로그인했습니다.' : '로그아웃했습니다.');
   } catch (error) {
     const message=error.message||'계정 서버에 연결하지 못했습니다.';
-    const inlineError=form.querySelector('.login-error');
     if(inlineError?.isConnected)inlineError.textContent=message;
     else FP.toast(message);
   } finally {
@@ -1070,6 +1064,7 @@ app.addEventListener('toggle',event=>{
  if(event.target.matches?.('.community-comments'))FP.communityThreadToggle?.(event.target);
 },true);
 app.addEventListener('input',event=>{
+ if(event.target.id==='demo-login-id')loginId=event.target.value;
  const form=event.target.closest('form');
  if(form?.matches('.comment-form'))FP.communityDraft?.(form.dataset.post,form.elements.comment.value);
  if(form?.id!=='public-share-form'||!shareOptions)return;
@@ -1082,7 +1077,7 @@ document.addEventListener?.('visibilitychange',scheduleCareer);
 const restoredAccount = FP.restoreAccount();
 render();
 restoredAccount.then(available => {
-  if (!available && !FP.account.restorePending&&!['#profile','#login','#login-team','#account'].includes(location.hash)) {scheduleCareer();return;}
+  if (!available && !FP.account.restorePending&&!['profile','account',...demoAuthRoutes].includes(location.hash.slice(1))) {scheduleCareer();return;}
   if (FP.account.username) { draft = null; appliedMatch = null; formStage = 1; }
   render();
   if(location.hash==='#community')void FP.refreshCommunity?.(true);
